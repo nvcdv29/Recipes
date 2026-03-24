@@ -35,6 +35,26 @@
         "role": { "type": "string", "enum": ["admin", "user"] }
       },
       "required": ["uid", "email"]
+    },
+    "AllowedUser": {
+      "title": "AllowedUser",
+      "description": "A user email allowed to access the app.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global application settings.",
+      "type": "object",
+      "properties": {
+        "allowGoogleLogin": { "type": "boolean" },
+        "allowEmailLogin": { "type": "boolean" },
+        "restrictToWhitelist": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -45,6 +65,14 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile documents."
+    },
+    "/allowedUsers/{email}": {
+      "schema": "AllowedUser",
+      "description": "Whitelist of allowed user emails."
+    },
+    "/settings/global": {
+      "schema": "Settings",
+      "description": "Global app configuration."
     }
   }
 }

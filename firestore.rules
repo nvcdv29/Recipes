@@ -53,7 +53,13 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "nl.leitschuh@gmail.com" && request.auth.token.email_verified == true));
+         (request.auth.token.email == "nl.leitschuh@gmail.com" && request.auth.token.email_verified == true) ||
+         (request.auth.token.email == "noah@leitschuh.de" && request.auth.token.email_verified == true));
+    }
+
+    function isAllowed() {
+      return isAuthenticated() && 
+        (exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)) || isAdmin());
     }
 
     function isValidRecipe(data) {
@@ -88,6 +94,16 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /allowedUsers/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     match /users/{userId} {
       // Users can only read their own profile (contains PII like email)
       allow read: if isOwner(userId) || isAdmin();
@@ -102,9 +118,9 @@ service cloud.firestore {
     match /recipes/{recipeId} {
       // Public recipes are readable by all authenticated family members
       // Private recipes are only readable by the owner
-      allow read: if isAuthenticated() && (resource.data.isPublic == true || isDocOwner() || isAdmin());
+      allow read: if isAllowed() && (resource.data.isPublic == true || isDocOwner() || isAdmin());
       
-      allow create: if isAuthenticated() && isValidRecipe(request.resource.data) && 
+      allow create: if isAllowed() && isValidRecipe(request.resource.data) && 
                       request.resource.data.authorId == request.auth.uid;
                       
       allow update: if (isDocOwner() || isAdmin()) && isValidRecipe(request.resource.data) &&

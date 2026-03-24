@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { useState, useEffect, Component, ErrorInfo, ReactNode, useMemo } from 'react';
 import { 
   collection, 
   query, 
@@ -12,17 +12,20 @@ import {
   serverTimestamp,
   getDoc,
   setDoc,
-  getDocFromServer
+  getDocFromServer,
+  getDocs
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut,
-  User
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { Recipe, UserProfile, OperationType, FirestoreErrorInfo } from './types';
+import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings } from './types';
 import { Toaster, toast } from 'sonner';
 import { 
   ChefHat, 
@@ -45,13 +48,21 @@ import {
   Check,
   Loader2,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Mail,
+  Lock,
+  UserPlus,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { scanRecipeImage } from './services/geminiService';
 import html2pdf from 'html2pdf.js';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
+import imageCompression from 'browser-image-compression';
+import FlexSearch from 'flexsearch';
 
 // --- Error Handling ---
 
@@ -166,13 +177,68 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'detail' | 'form' | 'scan'>('list');
+  const [view, setView] = useState<'list' | 'detail' | 'form' | 'scan' | 'admin'>('list');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Alle');
+  const [settings, setSettings] = useState<Settings>({
+    allowGoogleLogin: true,
+    allowEmailLogin: true,
+    restrictToWhitelist: true
+  });
+  const [isWhitelisted, setIsWhitelisted] = useState<boolean | null>(null);
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+
+  // Search Index
+  const index = useMemo(() => {
+    const idx = new FlexSearch.Document({
+      document: {
+        id: "id",
+        index: ["title", "ingredients", "notes"],
+        store: true
+      },
+      tokenize: "forward"
+    });
+    recipes.forEach(r => idx.add(r as any));
+    return idx;
+  }, [recipes]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return null;
+    const results = index.search(searchQuery, { enrich: true });
+    return results.flatMap(r => r.result.map(res => (res as any).doc)) as Recipe[];
+  }, [searchQuery, index]);
+
+  // Settings & Whitelist Listener
+  useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
+      if (doc.exists()) setSettings(doc.data() as Settings);
+    });
+
+    return () => unsubSettings();
+  }, []);
+
+  useEffect(() => {
+    if (user && settings.restrictToWhitelist) {
+      const checkWhitelist = async () => {
+        const adminEmails = ["nl.leitschuh@gmail.com", "noah@leitschuh.de"];
+        if (adminEmails.includes(user.email || '')) {
+          setIsWhitelisted(true);
+          return;
+        }
+        const docRef = doc(db, 'allowedUsers', user.email || '');
+        const docSnap = await getDoc(docRef);
+        setIsWhitelisted(docSnap.exists());
+      };
+      checkWhitelist();
+    } else if (user) {
+      setIsWhitelisted(true);
+    } else {
+      setIsWhitelisted(null);
+    }
+  }, [user, settings.restrictToWhitelist]);
 
   // Connection Test
   useEffect(() => {
@@ -242,13 +308,27 @@ export default function App() {
     return unsubscribe;
   }, [user]);
 
-  const handleLogin = async () => {
+  const handleLogin = async (email?: string, password?: string) => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      if (email && password) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      }
       toast.success("Willkommen zurück!");
-    } catch (error) {
-      toast.error("Login fehlgeschlagen");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error(error.message || "Login fehlgeschlagen");
+    }
+  };
+
+  const handleRegister = async (email: string, password: string) => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      toast.success("Konto erstellt!");
+    } catch (error: any) {
+      toast.error(error.message || "Registrierung fehlgeschlagen");
     }
   };
 
@@ -272,13 +352,14 @@ export default function App() {
     }
   };
 
-  const filteredRecipes = recipes.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         r.ingredients.some(i => i.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = filterCategory === 'Alle' || r.categories.includes(filterCategory);
-    const isVisible = r.isPublic || r.authorId === user?.uid;
-    return matchesSearch && matchesCategory && isVisible;
-  });
+  const filteredRecipes = useMemo(() => {
+    const baseList = searchResults || recipes;
+    return baseList.filter(r => {
+      const matchesCategory = filterCategory === 'Alle' || r.categories.includes(filterCategory);
+      const isVisible = r.isPublic || r.authorId === user?.uid;
+      return matchesCategory && isVisible;
+    });
+  }, [recipes, searchResults, filterCategory, user]);
 
   const categories = ['Alle', ...Array.from(new Set(recipes.flatMap(r => r.categories)))];
 
@@ -290,8 +371,18 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} />;
+  if (!user || (settings.restrictToWhitelist && isWhitelisted === false)) {
+    return (
+      <LoginScreen 
+        onLogin={handleLogin} 
+        settings={settings} 
+        isBlocked={isWhitelisted === false}
+        onReset={() => {
+          signOut(auth);
+          setIsWhitelisted(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -321,6 +412,17 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
+              {userProfile?.role === 'admin' && (
+                <button 
+                  onClick={() => setView('admin')}
+                  className={cn(
+                    "p-2 rounded-full transition-colors",
+                    view === 'admin' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+                  )}
+                >
+                  <SettingsIcon size={20} />
+                </button>
+              )}
               <Button 
                 variant="secondary" 
                 className="hidden sm:flex"
@@ -436,6 +538,10 @@ export default function App() {
                 }}
               />
             )}
+
+            {view === 'admin' && userProfile?.role === 'admin' && (
+              <AdminView onBack={() => setView('list')} />
+            )}
           </AnimatePresence>
         </main>
         
@@ -455,29 +561,133 @@ export default function App() {
 
 // --- Sub-Components ---
 
-const LoginScreen = ({ onLogin }: { onLogin: () => void }) => (
-  <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-md w-full bg-white p-12 rounded-[2.5rem] shadow-2xl shadow-primary/5 border border-outline-variant/10"
-    >
-      <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-8">
-        <ChefHat size={40} />
+const LoginScreen = ({ onLogin, settings, isBlocked, onReset }: any) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (isRegister) {
+        await createUserWithEmailAndPassword(auth, email, password);
+        toast.success("Konto erstellt!");
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        toast.success("Willkommen zurück!");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Aktion fehlgeschlagen");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white p-12 rounded-[2.5rem] shadow-2xl border border-red-100"
+        >
+          <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center text-red-500 mx-auto mb-8">
+            <ShieldAlert size={40} />
+          </div>
+          <h1 className="text-3xl font-serif font-bold text-red-600 mb-4">Zugriff verweigert</h1>
+          <p className="text-on-surface-variant mb-10 leading-relaxed">
+            Deine E-Mail-Adresse ist nicht auf der Whitelist. Bitte kontaktiere den Administrator (Noah), um Zugriff zu erhalten.
+          </p>
+          <Button onClick={onReset} variant="secondary" className="w-full">Zurück zum Login</Button>
+        </motion.div>
       </div>
-      <h1 className="text-4xl font-serif font-bold text-primary mb-4">Heirloom</h1>
-      <p className="text-on-surface-variant mb-10 leading-relaxed">
-        Deine private Familiensammlung für Rezepte, Erinnerungen und kulinarische Schätze.
-      </p>
-      <Button onClick={onLogin} className="w-full py-4 text-lg" icon={UserIcon}>
-        Mit Google anmelden
-      </Button>
-      <p className="mt-8 text-xs text-on-surface-variant/40 uppercase tracking-widest font-semibold">
-        Nur für Familienmitglieder
-      </p>
-    </motion.div>
-  </div>
-);
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full bg-white p-12 rounded-[2.5rem] shadow-2xl shadow-primary/5 border border-outline-variant/10"
+      >
+        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-8">
+          <ChefHat size={40} />
+        </div>
+        <h1 className="text-4xl font-serif font-bold text-primary mb-4">Heirloom</h1>
+        <p className="text-on-surface-variant mb-10 leading-relaxed">
+          Deine private Familiensammlung für Rezepte, Erinnerungen und kulinarische Schätze.
+        </p>
+
+        <div className="space-y-4">
+          {settings.allowGoogleLogin && (
+            <Button onClick={onLogin} className="w-full py-4 text-lg" icon={UserIcon}>
+              Mit Google anmelden
+            </Button>
+          )}
+
+          {settings.allowGoogleLogin && settings.allowEmailLogin && (
+            <div className="flex items-center gap-4 my-6">
+              <div className="h-px flex-1 bg-outline-variant/20" />
+              <span className="text-xs font-bold text-on-surface-variant/40 uppercase tracking-widest">Oder</span>
+              <div className="h-px flex-1 bg-outline-variant/20" />
+            </div>
+          )}
+
+          {settings.allowEmailLogin && (
+            <form onSubmit={handleSubmit} className="space-y-4 text-left">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">E-Mail</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                  <input 
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    placeholder="deine@email.de"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Passwort</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full py-4 text-lg" disabled={loading}>
+                {loading ? <Loader2 className="animate-spin" /> : (isRegister ? <UserPlus /> : <Lock />)}
+                {isRegister ? 'Konto erstellen' : 'Anmelden'}
+              </Button>
+              <button 
+                type="button"
+                onClick={() => setIsRegister(!isRegister)}
+                className="w-full text-sm text-primary font-medium hover:underline"
+              >
+                {isRegister ? 'Bereits ein Konto? Anmelden' : 'Noch kein Konto? Registrieren'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <p className="mt-8 text-xs text-on-surface-variant/40 uppercase tracking-widest font-semibold">
+          {settings.restrictToWhitelist ? 'Nur für autorisierte Mitglieder' : 'Willkommen in der Familie'}
+        </p>
+      </motion.div>
+    </div>
+  );
+};
 
 const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }) => (
   <motion.div 
@@ -708,8 +918,33 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Image Compression
+      const compressedImages = await Promise.all(formData.images.map(async (img) => {
+        if (img.startsWith('data:image')) {
+          try {
+            const response = await fetch(img);
+            const blob = await response.blob();
+            const compressedFile = await imageCompression(blob as File, {
+              maxSizeMB: 0.5,
+              maxWidthOrHeight: 1200,
+              useWebWorker: true
+            });
+            return new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(compressedFile);
+            });
+          } catch (err) {
+            console.error("Compression failed:", err);
+            return img;
+          }
+        }
+        return img;
+      }));
+
       const data = {
         ...formData,
+        images: compressedImages,
         authorId: user.uid,
         authorName: user.displayName,
         createdAt: recipe?.createdAt || new Date().toISOString(),
@@ -904,6 +1139,156 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
           </Button>
         </div>
       </form>
+    </motion.div>
+  );
+};
+
+const AdminView = ({ onBack }: { onBack: () => void }) => {
+  const [settings, setSettings] = useState<Settings>({
+    allowGoogleLogin: true,
+    allowEmailLogin: true,
+    restrictToWhitelist: true
+  });
+  const [allowedUsers, setAllowedUsers] = useState<AllowedUser[]>([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
+      if (doc.exists()) setSettings(doc.data() as Settings);
+    });
+
+    const unsubUsers = onSnapshot(collection(db, 'allowedUsers'), (snap) => {
+      setAllowedUsers(snap.docs.map(d => d.data()) as any);
+      setLoading(false);
+    });
+
+    return () => { unsubSettings(); unsubUsers(); };
+  }, []);
+
+  const toggleSetting = async (key: keyof Settings) => {
+    const newSettings = { ...settings, [key]: !settings[key] };
+    try {
+      await setDoc(doc(db, 'settings', 'global'), newSettings);
+      toast.success("Einstellungen aktualisiert");
+    } catch (error) {
+      toast.error("Fehler beim Speichern");
+    }
+  };
+
+  const addAllowedUser = async (e: any) => {
+    e.preventDefault();
+    if (!newEmail) return;
+    try {
+      await setDoc(doc(db, 'allowedUsers', newEmail), {
+        email: newEmail,
+        addedAt: new Date().toISOString()
+      });
+      setNewEmail('');
+      toast.success("Benutzer hinzugefügt");
+    } catch (error) {
+      toast.error("Fehler beim Hinzufügen");
+    }
+  };
+
+  const removeAllowedUser = async (email: string) => {
+    try {
+      await deleteDoc(doc(db, 'allowedUsers', email));
+      toast.success("Benutzer entfernt");
+    } catch (error) {
+      toast.error("Fehler beim Entfernen");
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto space-y-12 pb-24"
+    >
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={onBack} className="p-2 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant">
+          <ChevronLeft size={24} />
+        </button>
+        <h2 className="text-4xl font-serif font-bold text-primary">Admin-Bereich</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Settings */}
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+              <ShieldCheck size={24} />
+            </div>
+            <h3 className="text-xl font-serif font-bold">Login-Einstellungen</h3>
+          </div>
+          
+          <div className="space-y-6">
+            {[
+              { key: 'allowGoogleLogin', label: 'Google Login erlauben', desc: 'Nutzer können sich mit Google anmelden.' },
+              { key: 'allowEmailLogin', label: 'E-Mail Login erlauben', desc: 'Nutzer können E-Mail & Passwort nutzen.' },
+              { key: 'restrictToWhitelist', label: 'Whitelist erzwingen', desc: 'Nur Nutzer auf der Liste haben Zugriff.' }
+            ].map((s: any) => (
+              <div key={s.key} className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">{s.label}</p>
+                  <p className="text-xs text-on-surface-variant/60">{s.desc}</p>
+                </div>
+                <button
+                  onClick={() => toggleSetting(s.key)}
+                  className={cn(
+                    "w-12 h-6 rounded-full transition-all relative",
+                    settings[s.key as keyof Settings] ? "bg-primary" : "bg-outline-variant"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm",
+                    settings[s.key as keyof Settings] ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Whitelist */}
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+              <Users size={24} />
+            </div>
+            <h3 className="text-xl font-serif font-bold">Whitelist</h3>
+          </div>
+
+          <form onSubmit={addAllowedUser} className="flex gap-2 mb-6">
+            <input 
+              type="email" 
+              placeholder="E-Mail hinzufügen..."
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value)}
+              className="flex-1 px-4 py-2 bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none text-sm"
+            />
+            <Button type="submit" className="px-4 py-2" icon={Plus}>Hinzufügen</Button>
+          </form>
+
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+            {allowedUsers.map(u => (
+              <div key={u.email} className="flex items-center justify-between p-3 bg-surface-container-low rounded-xl group">
+                <span className="text-sm font-medium">{u.email}</span>
+                <button 
+                  onClick={() => removeAllowedUser(u.email)}
+                  className="p-1.5 text-on-surface-variant/40 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            {allowedUsers.length === 0 && !loading && (
+              <p className="text-center py-8 text-sm text-on-surface-variant/40 italic">Keine Nutzer auf der Whitelist</p>
+            )}
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 };

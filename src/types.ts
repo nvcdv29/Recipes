@@ -27,6 +27,17 @@ export interface UserProfile {
   role: 'admin' | 'user';
 }
 
+export interface AllowedUser {
+  email: string;
+  addedAt: string;
+}
+
+export interface Settings {
+  allowGoogleLogin: boolean;
+  allowEmailLogin: boolean;
+  restrictToWhitelist: boolean;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
