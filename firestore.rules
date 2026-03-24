@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: recipes
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required)
+    //   - authorId: string (required, immutable)
+    //   - authorName: string
+    //   - images: list (strings)
+    //   - duration: string
+    //   - servings: number
+    //   - difficulty: string (einfach|mittel|schwer)
+    //   - categories: list (strings)
+    //   - dietary: list (strings)
+    //   - tags: list (strings)
+    //   - ingredients: list (strings, required)
+    //   - instructions: list (strings, required)
+    //   - notes: string
+    //   - createdAt: string (ISO 8601, required)
+    //   - isPublic: bool (required)
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - displayName: string
+    //   - email: string (required, PII)
+    //   - photoURL: string
+    //   - role: string (admin|user)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "nl.leitschuh@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidRecipe(data) {
+      return data.keys().hasAll(['title', 'authorId', 'ingredients', 'instructions', 'createdAt', 'isPublic']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.authorId is string &&
+             data.ingredients is list && data.ingredients.size() > 0 && data.ingredients.size() < 100 &&
+             data.instructions is list && data.instructions.size() > 0 && data.instructions.size() < 100 &&
+             data.createdAt is string &&
+             data.isPublic is bool;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string &&
+             (!('role' in data) || data.role in ['admin', 'user']);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can only read their own profile (contains PII like email)
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create/update their own profile, but can't escalate role
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user');
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /recipes/{recipeId} {
+      // Public recipes are readable by all authenticated family members
+      // Private recipes are only readable by the owner
+      allow read: if isAuthenticated() && (resource.data.isPublic == true || isDocOwner() || isAdmin());
+      
+      allow create: if isAuthenticated() && isValidRecipe(request.resource.data) && 
+                      request.resource.data.authorId == request.auth.uid;
+                      
+      allow update: if (isDocOwner() || isAdmin()) && isValidRecipe(request.resource.data) &&
+                      request.resource.data.authorId == resource.data.authorId; // authorId is immutable
+                      
+      allow delete: if isDocOwner() || isAdmin();
+    }
+  }
+}

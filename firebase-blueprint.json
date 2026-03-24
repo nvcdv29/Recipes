@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "Recipe": {
+      "title": "Recipe",
+      "description": "A culinary recipe with ingredients and instructions.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Name of the dish" },
+        "authorId": { "type": "string", "description": "UID of the creator" },
+        "authorName": { "type": "string", "description": "Display name of the creator" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs of recipe photos" },
+        "duration": { "type": "string", "description": "Prep/cook time (e.g., '30 Min')" },
+        "servings": { "type": "number", "description": "Number of portions" },
+        "difficulty": { "type": "string", "enum": ["einfach", "mittel", "schwer"] },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "dietary": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "ingredients": { "type": "array", "items": { "type": "string" } },
+        "instructions": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isPublic": { "type": "boolean", "description": "Whether the recipe is shared with the family" }
+      },
+      "required": ["title", "authorId", "ingredients", "instructions"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/recipes/{recipeId}": {
+      "schema": "Recipe",
+      "description": "Collection of all recipes."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    }
+  }
+}
