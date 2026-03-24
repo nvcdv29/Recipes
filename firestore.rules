@@ -63,13 +63,24 @@ service cloud.firestore {
              data.ingredients is list && data.ingredients.size() > 0 && data.ingredients.size() < 100 &&
              data.instructions is list && data.instructions.size() > 0 && data.instructions.size() < 100 &&
              data.createdAt is string &&
-             data.isPublic is bool;
+             data.isPublic is bool &&
+             (!('authorName' in data) || (data.authorName is string && data.authorName.size() < 100)) &&
+             (!('duration' in data) || (data.duration is string && data.duration.size() < 50)) &&
+             (!('servings' in data) || (data.servings is number && data.servings >= 0)) &&
+             (!('difficulty' in data) || (data.difficulty in ['einfach', 'mittel', 'schwer'])) &&
+             (!('categories' in data) || (data.categories is list && data.categories.size() < 20)) &&
+             (!('dietary' in data) || (data.dietary is list && data.dietary.size() < 20)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() < 20)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 10000)) &&
+             (!('images' in data) || (data.images is list && data.images.size() < 10));
     }
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid is string &&
              data.email is string &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000)) &&
              (!('role' in data) || data.role in ['admin', 'user']);
     }
 
