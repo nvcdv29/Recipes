@@ -22,7 +22,11 @@ import {
   signOut,
   User,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink
 } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings } from './types';
@@ -182,7 +186,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Alle');
   const [settings, setSettings] = useState<Settings>({
-    allowGoogleLogin: true,
+    allowGoogleLogin: false,
     allowEmailLogin: true,
     restrictToWhitelist: true
   });
@@ -257,6 +261,24 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
+    // Handle Magic Link Sign-in
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Bitte gib deine E-Mail zur Bestätigung ein');
+      }
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .then(() => {
+            window.localStorage.removeItem('emailForSignIn');
+            toast.success("Erfolgreich mit Magic Link angemeldet!");
+          })
+          .catch((error) => {
+            toast.error("Fehler beim Magic Link Login: " + error.message);
+          });
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -312,23 +334,43 @@ export default function App() {
     try {
       if (email && password) {
         await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+        toast.success("Willkommen zurück!");
       }
-      toast.success("Willkommen zurück!");
     } catch (error: any) {
       console.error("Login error:", error);
-      toast.error(error.message || "Login fehlgeschlagen");
+      toast.error("Login fehlgeschlagen: " + (error.code === 'auth/user-not-found' ? 'Benutzer nicht gefunden' : error.message));
+    }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success("E-Mail zum Zurücksetzen des Passworts wurde gesendet!");
+    } catch (error: any) {
+      toast.error("Fehler: " + error.message);
+    }
+  };
+
+  const handleMagicLink = async (email: string) => {
+    const actionCodeSettings = {
+      url: window.location.href,
+      handleCodeInApp: true,
+    };
+    try {
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
+      toast.success("Magic Link wurde an deine E-Mail gesendet!");
+    } catch (error: any) {
+      toast.error("Fehler: " + error.message);
     }
   };
 
   const handleRegister = async (email: string, password: string) => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      toast.success("Konto erstellt!");
+      toast.success("Konto erstellt! Wenn Whitelisting aktiv ist, wirst du blockiert, bis Noah dich freischaltet.");
     } catch (error: any) {
-      toast.error(error.message || "Registrierung fehlgeschlagen");
+      toast.error("Registrierung fehlgeschlagen: " + error.message);
     }
   };
 
@@ -375,6 +417,8 @@ export default function App() {
     return (
       <LoginScreen 
         onLogin={handleLogin} 
+        onForgotPassword={handleForgotPassword}
+        onMagicLink={handleMagicLink}
         settings={settings} 
         isBlocked={isWhitelisted === false}
         onReset={() => {
@@ -561,22 +605,25 @@ export default function App() {
 
 // --- Sub-Components ---
 
-const LoginScreen = ({ onLogin, settings, isBlocked, onReset }: any) => {
+const LoginScreen = ({ onLogin, onForgotPassword, onMagicLink, settings, isBlocked, onReset }: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (isRegister) {
+      if (showForgotPassword) {
+        await onForgotPassword(email);
+        setShowForgotPassword(false);
+      } else if (isRegister) {
         await createUserWithEmailAndPassword(auth, email, password);
         toast.success("Konto erstellt!");
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        toast.success("Willkommen zurück!");
+        await onLogin(email, password);
       }
     } catch (error: any) {
       toast.error(error.message || "Aktion fehlgeschlagen");
@@ -618,17 +665,17 @@ const LoginScreen = ({ onLogin, settings, isBlocked, onReset }: any) => {
         </div>
         <h1 className="text-4xl font-serif font-bold text-primary mb-4">Heirloom</h1>
         <p className="text-on-surface-variant mb-10 leading-relaxed">
-          Deine private Familiensammlung für Rezepte, Erinnerungen und kulinarische Schätze.
+          {showForgotPassword ? 'Passwort zurücksetzen' : 'Deine private Familiensammlung für Rezepte und Erinnerungen.'}
         </p>
 
         <div className="space-y-4">
-          {settings.allowGoogleLogin && (
+          {settings.allowGoogleLogin && !showForgotPassword && (
             <Button onClick={onLogin} className="w-full py-4 text-lg" icon={UserIcon}>
               Mit Google anmelden
             </Button>
           )}
 
-          {settings.allowGoogleLogin && settings.allowEmailLogin && (
+          {settings.allowGoogleLogin && settings.allowEmailLogin && !showForgotPassword && (
             <div className="flex items-center gap-4 my-6">
               <div className="h-px flex-1 bg-outline-variant/20" />
               <span className="text-xs font-bold text-on-surface-variant/40 uppercase tracking-widest">Oder</span>
@@ -652,31 +699,64 @@ const LoginScreen = ({ onLogin, settings, isBlocked, onReset }: any) => {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Passwort</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    placeholder="••••••••"
-                  />
+              
+              {!showForgotPassword && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Passwort</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40" size={18} />
+                    <input 
+                      type="password" 
+                      required
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      className="w-full pl-12 pr-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      placeholder="••••••••"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
               <Button type="submit" className="w-full py-4 text-lg" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : (isRegister ? <UserPlus /> : <Lock />)}
-                {isRegister ? 'Konto erstellen' : 'Anmelden'}
+                {loading ? <Loader2 className="animate-spin" /> : (showForgotPassword ? <Mail /> : (isRegister ? <UserPlus /> : <Lock />))}
+                {showForgotPassword ? 'Link senden' : (isRegister ? 'Konto erstellen' : 'Anmelden')}
               </Button>
-              <button 
-                type="button"
-                onClick={() => setIsRegister(!isRegister)}
-                className="w-full text-sm text-primary font-medium hover:underline"
-              >
-                {isRegister ? 'Bereits ein Konto? Anmelden' : 'Noch kein Konto? Registrieren'}
-              </button>
+
+              {!showForgotPassword && (
+                <div className="flex flex-col gap-2 mt-4">
+                  <button 
+                    type="button"
+                    onClick={() => onMagicLink(email)}
+                    className="text-sm text-primary font-medium hover:underline flex items-center justify-center gap-2"
+                  >
+                    <Mail size={14} /> Magic Link senden
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-on-surface-variant/60 hover:underline"
+                  >
+                    Passwort vergessen?
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setIsRegister(!isRegister)}
+                    className="text-sm text-primary font-medium hover:underline mt-2"
+                  >
+                    {isRegister ? 'Bereits ein Konto? Anmelden' : 'Noch kein Konto? Registrieren'}
+                  </button>
+                </div>
+              )}
+
+              {showForgotPassword && (
+                <button 
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="w-full text-sm text-primary font-medium hover:underline mt-4"
+                >
+                  Zurück zum Login
+                </button>
+              )}
             </form>
           )}
         </div>
@@ -1145,7 +1225,7 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
 
 const AdminView = ({ onBack }: { onBack: () => void }) => {
   const [settings, setSettings] = useState<Settings>({
-    allowGoogleLogin: true,
+    allowGoogleLogin: false,
     allowEmailLogin: true,
     restrictToWhitelist: true
   });
