@@ -64,7 +64,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { scanRecipeImage } from './services/geminiService';
+import { scanRecipeImage, importRecipeFromUrl } from './services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import imageCompression from 'browser-image-compression';
@@ -202,6 +202,25 @@ export default function App() {
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+
+  // Handle PWA Share Target
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const title = params.get('title');
+    const text = params.get('text');
+    const url = params.get('url');
+    
+    const combined = `${title || ''} ${text || ''} ${url || ''}`;
+    const urlMatch = combined.match(/https?:\/\/[^\s]+/);
+    
+    if (urlMatch) {
+      setSharedUrl(urlMatch[0]);
+      setView('scan');
+      // Clean up URL to prevent re-triggering on refresh
+      window.history.replaceState({}, document.title, '/');
+    }
+  }, []);
 
   // Search Index
   const index = useMemo(() => {
@@ -624,10 +643,15 @@ export default function App() {
 
             {view === 'scan' && (
               <AIScanner 
-                onCancel={() => setView('list')} 
+                initialUrl={sharedUrl}
+                onCancel={() => {
+                  setView('list');
+                  setSharedUrl(null);
+                }} 
                 onScanComplete={(data) => {
                   setSelectedRecipe(data);
                   setView('form');
+                  setSharedUrl(null);
                 }}
               />
             )}
@@ -1947,9 +1971,16 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const AIScanner = ({ onCancel, onScanComplete }: any) => {
+const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
   const [isScanning, setIsScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState(initialUrl || '');
+
+  useEffect(() => {
+    if (initialUrl) {
+      handleUrlImport(initialUrl);
+    }
+  }, [initialUrl]);
 
   const handleFile = async (e: any) => {
     const file = e.target.files[0];
@@ -1972,6 +2003,21 @@ const AIScanner = ({ onCancel, onScanComplete }: any) => {
     reader.readAsDataURL(file);
   };
 
+  const handleUrlImport = async (urlToImport = urlInput) => {
+    if (!urlToImport.trim()) return;
+    
+    setIsScanning(true);
+    setPreview(null); // No image preview for URL
+    try {
+      const data = await importRecipeFromUrl(urlToImport.trim());
+      onScanComplete(data);
+      toast.success("Rezept erfolgreich importiert!");
+    } catch (error) {
+      toast.error("Import fehlgeschlagen. Bitte überprüfe die URL.");
+      setIsScanning(false);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -1984,43 +2030,83 @@ const AIScanner = ({ onCancel, onScanComplete }: any) => {
         </div>
         <h2 className="text-3xl font-serif font-bold text-primary mb-4">KI Rezept-Scanner</h2>
         <p className="text-on-surface-variant mb-10 leading-relaxed">
-          Fotografiere ein altes Familienrezept oder lade ein Bild hoch. 
-          Unsere KI wandelt es automatisch in ein digitales Format um.
+          Fotografiere ein Rezept, lade ein Bild hoch oder füge den Link einer Rezept-Website (z.B. Chefkoch) oder eines YouTube-Videos ein.
         </p>
 
         {isScanning ? (
           <div className="space-y-6 py-8">
-            <div className="relative w-48 h-48 mx-auto rounded-2xl overflow-hidden shadow-lg">
-              <img src={preview!} className="w-full h-full object-cover blur-sm" />
-              <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                <Loader2 className="animate-spin text-white" size={48} />
+            {preview ? (
+              <div className="relative w-48 h-48 mx-auto rounded-2xl overflow-hidden shadow-lg">
+                <img src={preview} className="w-full h-full object-cover blur-sm" />
+                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                  <Loader2 className="animate-spin text-white" size={48} />
+                </div>
+                <motion.div 
+                  animate={{ top: ['0%', '100%', '0%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="absolute left-0 right-0 h-1 bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-10"
+                />
               </div>
-              <motion.div 
-                animate={{ top: ['0%', '100%', '0%'] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute left-0 right-0 h-1 bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-10"
-              />
-            </div>
+            ) : (
+              <div className="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                <Loader2 className="animate-spin text-primary" size={48} />
+              </div>
+            )}
             <p className="text-primary font-medium animate-pulse">Analysiere Rezept...</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <label className="block">
-              <span className="sr-only">Bild auswählen</span>
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment"
-                onChange={handleFile}
-                className="block w-full text-sm text-on-surface-variant
-                  file:mr-4 file:py-3 file:px-8
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-primary file:text-white
-                  hover:file:bg-primary/90 cursor-pointer"
-              />
-            </label>
-            <Button variant="secondary" onClick={onCancel} className="w-full">
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Bild / Foto</h3>
+              <label className="block">
+                <span className="sr-only">Bild auswählen</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment"
+                  onChange={handleFile}
+                  className="block w-full text-sm text-on-surface-variant
+                    file:mr-4 file:py-3 file:px-8
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-primary file:text-white
+                    hover:file:bg-primary/90 cursor-pointer"
+                />
+              </label>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-outline-variant/20"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-on-surface-variant/50 font-medium">ODER</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Web-Link</h3>
+              <div className="flex gap-2">
+                <input 
+                  type="url"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://www.chefkoch.de/..."
+                  className="flex-1 px-4 py-3 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleUrlImport();
+                    }
+                  }}
+                />
+                <Button onClick={handleUrlImport} disabled={!urlInput.trim()}>
+                  Importieren
+                </Button>
+              </div>
+            </div>
+
+            <Button variant="secondary" onClick={onCancel} className="w-full mt-8">
               Abbrechen
             </Button>
           </div>
