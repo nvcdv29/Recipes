@@ -68,6 +68,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import imageCompression from 'browser-image-compression';
 import FlexSearch from 'flexsearch';
+import { jsPDF } from 'jspdf';
 
 // --- Error Handling ---
 
@@ -470,7 +471,7 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
-              {userProfile?.role === 'admin' && (
+              {(userProfile?.role === 'admin' || user?.email === 'nl.leitschuh@gmail.com' || user?.email === 'noah@leitschuh.de') && (
                 <button 
                   onClick={() => setView('admin')}
                   className={cn(
@@ -597,7 +598,7 @@ export default function App() {
               />
             )}
 
-            {view === 'admin' && userProfile?.role === 'admin' && (
+            {view === 'admin' && (userProfile?.role === 'admin' || user?.email === 'nl.leitschuh@gmail.com' || user?.email === 'noah@leitschuh.de') && (
               <AdminView onBack={() => setView('list')} />
             )}
           </AnimatePresence>
@@ -898,6 +899,9 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
 
 const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) => {
   const [userRating, setUserRating] = useState<number | null>(null);
+  const [showPdfOptions, setShowPdfOptions] = useState(false);
+  const [pdfIncludeImage, setPdfIncludeImage] = useState(false);
+  const [pdfIncludeRating, setPdfIncludeRating] = useState(false);
 
   useEffect(() => {
     if (currentUser && recipe.id) {
@@ -957,7 +961,90 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
   };
 
   const exportPDF = () => {
-    window.print();
+    const doc = new jsPDF();
+    let y = 20;
+    
+    // Title
+    doc.setFontSize(24);
+    doc.text(recipe.title, 20, y);
+    y += 10;
+    
+    // Meta
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Von ${recipe.authorName} • ${recipe.duration} • ${recipe.difficulty} • ${recipe.servings} Portionen`, 20, y);
+    y += 15;
+
+    // Image (Optional)
+    if (pdfIncludeImage && recipe.images?.[0]) {
+      try {
+        const imgData = recipe.images[0];
+        if (imgData.startsWith('data:image')) {
+          // Extract format from data URI (e.g., data:image/png;base64,...)
+          const formatMatch = imgData.match(/data:image\/([a-zA-Z0-9]+);base64,/);
+          const format = formatMatch ? formatMatch[1].toUpperCase() : 'JPEG';
+          doc.addImage(imgData, format, 20, y, 170, 100);
+          y += 110;
+        }
+      } catch (e) {
+        console.error("Could not add image to PDF", e);
+      }
+    }
+
+    // Rating (Optional)
+    if (pdfIncludeRating && recipe.averageRating) {
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`Bewertung: ${recipe.averageRating.toFixed(1)} / 5 (${recipe.ratingCount} Stimmen)`, 20, y);
+      y += 10;
+    }
+
+    // Ingredients
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text("Zutaten", 20, y);
+    y += 10;
+    doc.setFontSize(12);
+    recipe.ingredients.forEach((ing: string) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(`• ${ing}`, 25, y);
+      y += 7;
+    });
+    y += 5;
+
+    // Instructions
+    doc.setFontSize(16);
+    doc.text("Zubereitung", 20, y);
+    y += 10;
+    doc.setFontSize(12);
+    
+    recipe.instructions.forEach((inst: string, i: number) => {
+      const lines = doc.splitTextToSize(`${i + 1}. ${inst}`, 170);
+      lines.forEach((line: string) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(line, 25, y);
+        y += 7;
+      });
+      y += 3;
+    });
+
+    if (recipe.notes) {
+      y += 5;
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(16);
+      doc.text("Notizen", 20, y);
+      y += 10;
+      doc.setFontSize(12);
+      const lines = doc.splitTextToSize(recipe.notes, 170);
+      lines.forEach((line: string) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(line, 25, y);
+        y += 7;
+      });
+    }
+
+    doc.save(`${recipe.title}.pdf`);
+    setShowPdfOptions(false);
   };
 
   const shareRecipe = () => {
@@ -984,10 +1071,39 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
           <ChevronLeft size={20} />
           <span>Zurück zur Übersicht</span>
         </button>
-        <div className="flex gap-2">
-          <button onClick={exportPDF} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Drucken / PDF">
+        <div className="flex gap-2 relative">
+          <button onClick={() => setShowPdfOptions(!showPdfOptions)} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Drucken / PDF">
             <Printer size={20} />
           </button>
+          
+          {showPdfOptions && (
+            <div className="absolute top-14 right-12 w-64 bg-white rounded-2xl shadow-xl border border-outline-variant/10 p-4 z-50">
+              <h4 className="font-bold mb-4">PDF Export</h4>
+              <label className="flex items-center gap-3 mb-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={pdfIncludeImage} 
+                  onChange={e => setPdfIncludeImage(e.target.checked)}
+                  className="w-4 h-4 text-primary rounded"
+                />
+                <span className="text-sm">Mit Bild exportieren</span>
+              </label>
+              <label className="flex items-center gap-3 mb-6 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={pdfIncludeRating} 
+                  onChange={e => setPdfIncludeRating(e.target.checked)}
+                  className="w-4 h-4 text-primary rounded"
+                />
+                <span className="text-sm">Mit Bewertung exportieren</span>
+              </label>
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setShowPdfOptions(false)} className="flex-1 py-2 text-sm">Abbrechen</Button>
+                <Button onClick={exportPDF} className="flex-1 py-2 text-sm">Exportieren</Button>
+              </div>
+            </div>
+          )}
+
           <button onClick={shareRecipe} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Teilen">
             <Share2 size={20} />
           </button>
