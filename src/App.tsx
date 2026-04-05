@@ -30,7 +30,7 @@ import {
   signInWithEmailLink
 } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings, Rating } from './types';
+import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings, Rating, Difficulty } from './types';
 import { Toaster, toast } from 'sonner';
 import { 
   ChefHat, 
@@ -60,7 +60,8 @@ import {
   Lock,
   UserPlus,
   ShieldAlert,
-  Star
+  Star,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { scanRecipeImage } from './services/geminiService';
@@ -187,6 +188,9 @@ export default function App() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Alle');
+  const [filterDifficulty, setFilterDifficulty] = useState('Alle');
+  const [filterDuration, setFilterDuration] = useState('');
+  const [filterServings, setFilterServings] = useState('');
   const [settings, setSettings] = useState<Settings>({
     allowGoogleLogin: false,
     allowEmailLogin: true,
@@ -204,7 +208,7 @@ export default function App() {
     const idx = new FlexSearch.Document({
       document: {
         id: "id",
-        index: ["title", "ingredients", "notes"],
+        index: ["title", "ingredients", "notes", "tags"],
         store: true
       },
       tokenize: "forward"
@@ -413,10 +417,13 @@ export default function App() {
     const baseList = searchResults || recipes;
     return baseList.filter(r => {
       const matchesCategory = filterCategory === 'Alle' || r.categories.includes(filterCategory);
+      const matchesDifficulty = filterDifficulty === 'Alle' || r.difficulty === filterDifficulty;
+      const matchesDuration = !filterDuration || r.duration?.toLowerCase().includes(filterDuration.toLowerCase());
+      const matchesServings = !filterServings || r.servings === parseInt(filterServings);
       const isVisible = r.isPublic || r.authorId === user?.uid;
-      return matchesCategory && isVisible;
+      return matchesCategory && matchesDifficulty && matchesDuration && matchesServings && isVisible;
     });
-  }, [recipes, searchResults, filterCategory, user]);
+  }, [recipes, searchResults, filterCategory, filterDifficulty, filterDuration, filterServings, user]);
 
   const categories = ['Alle', ...Array.from(new Set(recipes.flatMap(r => r.categories)))];
 
@@ -517,7 +524,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <div className="flex flex-col md:flex-row gap-6 mb-12 items-center justify-between">
+                <div className="flex flex-col md:flex-row gap-6 mb-6 items-center justify-between">
                   <div className="relative w-full md:max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" size={20} />
                     <input 
@@ -544,6 +551,33 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="flex flex-wrap gap-4 mb-12">
+                  <select
+                    value={filterDifficulty}
+                    onChange={(e) => setFilterDifficulty(e.target.value)}
+                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer"
+                  >
+                    <option value="Alle">Alle Schwierigkeiten</option>
+                    <option value="einfach">Einfach</option>
+                    <option value="mittel">Mittel</option>
+                    <option value="schwer">Schwer</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Dauer (z.B. 30 Min)"
+                    value={filterDuration}
+                    onChange={(e) => setFilterDuration(e.target.value)}
+                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-40 text-on-surface-variant"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Portionen"
+                    value={filterServings}
+                    onChange={(e) => setFilterServings(e.target.value)}
+                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-32 text-on-surface-variant"
+                  />
                 </div>
 
                 {filteredRecipes.length === 0 ? (
@@ -1254,6 +1288,17 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     ...recipe
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+
+  const handleAddImageUrl = () => {
+    if (imageUrlInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), imageUrlInput.trim()]
+      }));
+      setImageUrlInput('');
+    }
+  };
 
   const handleSave = async (e: any) => {
     e.preventDefault();
@@ -1342,20 +1387,46 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     }
   };
 
-  const addField = (field: 'ingredients' | 'instructions') => {
+  const addField = (field: 'ingredients' | 'instructions' | 'tags') => {
     setFormData({ ...formData, [field]: [...(formData[field] || []), ''] });
   };
 
-  const updateField = (field: 'ingredients' | 'instructions', index: number, value: string) => {
+  const updateField = (field: 'ingredients' | 'instructions' | 'tags', index: number, value: string) => {
     const list = [...(formData[field] || [])];
     list[index] = value;
     setFormData({ ...formData, [field]: list });
   };
 
-  const removeField = (field: 'ingredients' | 'instructions', index: number) => {
+  const removeField = (field: 'ingredients' | 'instructions' | 'tags', index: number) => {
     const list = [...(formData[field] || [])];
     list.splice(index, 1);
     setFormData({ ...formData, [field]: list });
+  };
+
+  const handleImageUpload = (e: any) => {
+    const files = Array.from(e.target.files);
+    Promise.all(files.map(file => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file as Blob);
+      });
+    })).then(base64Images => {
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), ...base64Images]
+      }));
+    }).catch(err => {
+      console.error("Image read failed", err);
+      toast.error("Fehler beim Lesen der Bilder.");
+    });
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = [...(formData.images || [])];
+    newImages.splice(index, 1);
+    setFormData({ ...formData, images: newImages });
   };
 
   return (
@@ -1385,7 +1456,7 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
               placeholder="z.B. Omas Apfelkuchen"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Dauer</label>
               <input 
@@ -1404,6 +1475,109 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
                 className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Schwierigkeit</label>
+              <select
+                value={formData.difficulty}
+                onChange={e => setFormData({ ...formData, difficulty: e.target.value as Difficulty })}
+                className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none"
+              >
+                <option value="einfach">Einfach</option>
+                <option value="mittel">Mittel</option>
+                <option value="schwer">Schwer</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-xl font-serif font-bold flex items-center gap-3">
+            Bilder
+            <div className="h-px flex-1 bg-outline-variant/20" />
+          </h3>
+          
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-4">
+              {formData.images?.map((img, i) => (
+                <div key={i} className="relative w-32 h-32 rounded-2xl overflow-hidden group border border-outline-variant/10">
+                  <img src={img} alt={`Bild ${i + 1}`} className="w-full h-full object-cover" />
+                  <button 
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={24} />
+                  </button>
+                </div>
+              ))}
+              <label className="w-32 h-32 rounded-2xl border-2 border-dashed border-outline-variant/30 flex flex-col items-center justify-center text-on-surface-variant/50 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer">
+                <ImageIcon size={32} className="mb-2" />
+                <span className="text-xs font-medium text-center px-2">Vom Computer<br/>wählen</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={handleImageUpload} 
+                  className="hidden" 
+                />
+              </label>
+            </div>
+            
+            <div className="flex items-center gap-3 max-w-md">
+              <input 
+                type="url"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                placeholder="Oder Bild-URL einfügen..."
+                className="flex-1 px-4 py-2 bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddImageUrl();
+                  }
+                }}
+              />
+              <button 
+                type="button"
+                onClick={handleAddImageUrl}
+                className="px-4 py-2 bg-primary/10 text-primary font-medium rounded-xl hover:bg-primary/20 transition-colors text-sm whitespace-nowrap"
+              >
+                Hinzufügen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-xl font-serif font-bold flex items-center gap-3">
+            Tags
+            <div className="h-px flex-1 bg-outline-variant/20" />
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {formData.tags?.map((tag, i) => (
+              <div key={i} className="flex items-center bg-surface-container-low rounded-full pl-4 pr-1 py-1">
+                <input 
+                  value={tag}
+                  onChange={e => updateField('tags', i, e.target.value)}
+                  className="bg-transparent outline-none w-24 text-sm font-medium"
+                  placeholder="Tag..."
+                />
+                <button 
+                  type="button"
+                  onClick={() => removeField('tags', i)}
+                  className="p-1.5 text-on-surface-variant/40 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button"
+              onClick={() => addField('tags')}
+              className="flex items-center gap-2 text-primary font-medium px-4 py-2 hover:bg-primary/5 rounded-full transition-colors border border-primary/20"
+            >
+              <Plus size={16} /> Tag hinzufügen
+            </button>
           </div>
         </div>
 

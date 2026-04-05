@@ -8,17 +8,18 @@ export async function scanRecipeImage(base64Image: string, mimeType: string) {
     Extract the following information and return it as a JSON object:
     {
       "title": "Recipe Name",
-      "duration": "Prep/Cook Time",
+      "duration": "Prep/Cook Time (estimate if not explicitly stated, e.g., '45 Min.')",
       "servings": 4,
-      "difficulty": "einfach" | "mittel" | "schwer",
+      "difficulty": "einfach" | "mittel" | "schwer" (estimate based on steps and ingredients if not explicitly stated),
       "categories": ["Category1", "Category2"],
       "dietary": ["Dietary1"],
-      "tags": ["Tag1"],
+      "tags": ["Tag1", "Tag2"],
       "ingredients": ["Ingredient 1", "Ingredient 2"],
       "instructions": ["Step 1", "Step 2"],
       "notes": "Any extra tips"
     }
     If you can't find a field, leave it empty or use a sensible default.
+    For difficulty, MUST be one of: "einfach", "mittel", "schwer".
     Return ONLY the JSON object.
   `;
 
