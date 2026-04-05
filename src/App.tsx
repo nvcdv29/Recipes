@@ -13,7 +13,8 @@ import {
   getDoc,
   setDoc,
   getDocFromServer,
-  getDocs
+  getDocs,
+  or
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
@@ -29,7 +30,7 @@ import {
   signInWithEmailLink
 } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings } from './types';
+import { Recipe, UserProfile, OperationType, FirestoreErrorInfo, AllowedUser, Settings, Rating } from './types';
 import { Toaster, toast } from 'sonner';
 import { 
   ChefHat, 
@@ -58,11 +59,11 @@ import {
   Mail,
   Lock,
   UserPlus,
-  ShieldAlert
+  ShieldAlert,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { scanRecipeImage } from './services/geminiService';
-import html2pdf from 'html2pdf.js';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import imageCompression from 'browser-image-compression';
@@ -188,7 +189,9 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>({
     allowGoogleLogin: false,
     allowEmailLogin: true,
-    restrictToWhitelist: true
+    restrictToWhitelist: true,
+    allowRegistration: true,
+    allowMagicLink: true
   });
   const [isWhitelisted, setIsWhitelisted] = useState<boolean | null>(null);
 
@@ -219,6 +222,8 @@ export default function App() {
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
       if (doc.exists()) setSettings(doc.data() as Settings);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/global');
     });
 
     return () => unsubSettings();
@@ -232,9 +237,13 @@ export default function App() {
           setIsWhitelisted(true);
           return;
         }
-        const docRef = doc(db, 'allowedUsers', user.email || '');
-        const docSnap = await getDoc(docRef);
-        setIsWhitelisted(docSnap.exists());
+        try {
+          const docRef = doc(db, 'allowedUsers', user.email || '');
+          const docSnap = await getDoc(docRef);
+          setIsWhitelisted(docSnap.exists());
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `allowedUsers/${user.email}`);
+        }
       };
       checkWhitelist();
     } else if (user) {
@@ -310,13 +319,14 @@ export default function App() {
 
   // Recipes Listener
   useEffect(() => {
-    if (!user) {
+    if (!user || isWhitelisted === false) {
       setRecipes([]);
       return;
     }
 
     const q = query(
       collection(db, 'recipes'),
+      or(where('isPublic', '==', true), where('authorId', '==', user.uid)),
       orderBy('createdAt', 'desc')
     );
 
@@ -328,7 +338,7 @@ export default function App() {
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, isWhitelisted]);
 
   const handleLogin = async (email?: string, password?: string) => {
     try {
@@ -352,6 +362,10 @@ export default function App() {
   };
 
   const handleMagicLink = async (email: string) => {
+    if (!settings.allowMagicLink) {
+      toast.error("Magic Link ist derzeit deaktiviert.");
+      return;
+    }
     const actionCodeSettings = {
       url: window.location.href,
       handleCodeInApp: true,
@@ -443,7 +457,7 @@ export default function App() {
         />
 
         {/* Navigation */}
-        <nav className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10">
+        <nav className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10 print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <div 
               className="flex items-center gap-3 cursor-pointer group"
@@ -593,7 +607,7 @@ export default function App() {
         {view === 'list' && (
           <button 
             onClick={() => setView('scan')}
-            className="fixed bottom-8 right-8 sm:hidden w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform z-40"
+            className="fixed bottom-8 right-8 sm:hidden w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform z-40 print:hidden"
           >
             <Camera size={24} />
           </button>
@@ -620,6 +634,10 @@ const LoginScreen = ({ onLogin, onForgotPassword, onMagicLink, settings, isBlock
         await onForgotPassword(email);
         setShowForgotPassword(false);
       } else if (isRegister) {
+        if (!settings.allowRegistration) {
+          toast.error("Registrierung ist derzeit deaktiviert.");
+          return;
+        }
         await createUserWithEmailAndPassword(auth, email, password);
         toast.success("Konto erstellt!");
       } else {
@@ -724,13 +742,15 @@ const LoginScreen = ({ onLogin, onForgotPassword, onMagicLink, settings, isBlock
 
               {!showForgotPassword && (
                 <div className="flex flex-col gap-2 mt-4">
-                  <button 
-                    type="button"
-                    onClick={() => onMagicLink(email)}
-                    className="text-sm text-primary font-medium hover:underline flex items-center justify-center gap-2"
-                  >
-                    <Mail size={14} /> Magic Link senden
-                  </button>
+                  {settings.allowMagicLink && (
+                    <button 
+                      type="button"
+                      onClick={() => onMagicLink(email)}
+                      className="text-sm text-primary font-medium hover:underline flex items-center justify-center gap-2"
+                    >
+                      <Mail size={14} /> Magic Link senden
+                    </button>
+                  )}
                   <button 
                     type="button"
                     onClick={() => setShowForgotPassword(true)}
@@ -738,13 +758,15 @@ const LoginScreen = ({ onLogin, onForgotPassword, onMagicLink, settings, isBlock
                   >
                     Passwort vergessen?
                   </button>
-                  <button 
-                    type="button"
-                    onClick={() => setIsRegister(!isRegister)}
-                    className="text-sm text-primary font-medium hover:underline mt-2"
-                  >
-                    {isRegister ? 'Bereits ein Konto? Anmelden' : 'Noch kein Konto? Registrieren'}
-                  </button>
+                  {settings.allowRegistration && (
+                    <button 
+                      type="button"
+                      onClick={() => setIsRegister(!isRegister)}
+                      className="text-sm text-primary font-medium hover:underline mt-2"
+                    >
+                      {isRegister ? 'Bereits ein Konto? Anmelden' : 'Noch kein Konto? Registrieren'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -769,6 +791,47 @@ const LoginScreen = ({ onLogin, onForgotPassword, onMagicLink, settings, isBlock
   );
 };
 
+const RatingStars = ({ rating, count, size = 16, interactive = false, onRate }: any) => {
+  const [hover, setHover] = useState(0);
+  const stars = [1, 2, 3, 4, 5];
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex gap-0.5">
+        {stars.map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={!interactive}
+            onMouseEnter={() => interactive && setHover(star)}
+            onMouseLeave={() => interactive && setHover(0)}
+            onClick={() => interactive && onRate && onRate(star)}
+            className={cn(
+              "transition-all",
+              interactive ? "hover:scale-125 cursor-pointer" : "cursor-default"
+            )}
+          >
+            <Star
+              size={size}
+              className={cn(
+                "transition-colors",
+                (hover || rating) >= star
+                  ? "fill-amber-400 text-amber-400"
+                  : "text-outline-variant/40"
+              )}
+            />
+          </button>
+        ))}
+      </div>
+      {count !== undefined && (
+        <span className="text-xs font-bold text-on-surface-variant/40">
+          ({count})
+        </span>
+      )}
+    </div>
+  );
+};
+
 const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }) => (
   <motion.div 
     layout
@@ -784,19 +847,32 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="absolute top-4 right-4 flex gap-2">
-        {recipe.dietary.slice(0, 2).map(d => (
-          <span key={d} className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
-            {d}
-          </span>
-        ))}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+        <div className="flex gap-2">
+          {recipe.dietary.slice(0, 2).map(d => (
+            <span key={d} className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
+              {d}
+            </span>
+          ))}
+        </div>
+        {recipe.averageRating && (
+          <div className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-sm">
+            <Star size={12} className="fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold text-primary">{recipe.averageRating.toFixed(1)}</span>
+          </div>
+        )}
       </div>
     </div>
     <div className="p-6">
-      <div className="flex items-center gap-2 text-xs font-semibold text-primary/60 uppercase tracking-wider mb-2">
-        <span>{recipe.categories[0]}</span>
-        <span className="w-1 h-1 bg-primary/20 rounded-full" />
-        <span>{recipe.difficulty}</span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-primary/60 uppercase tracking-wider">
+          <span>{recipe.categories[0]}</span>
+          <span className="w-1 h-1 bg-primary/20 rounded-full" />
+          <span>{recipe.difficulty}</span>
+        </div>
+        {recipe.averageRating && (
+          <RatingStars rating={recipe.averageRating} count={recipe.ratingCount} size={12} />
+        )}
       </div>
       <h3 className="text-xl font-serif font-bold text-on-surface group-hover:text-primary transition-colors mb-4 line-clamp-1">
         {recipe.title}
@@ -821,16 +897,67 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
 );
 
 const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) => {
+  const [userRating, setUserRating] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (currentUser && recipe.id) {
+      const q = query(
+        collection(db, 'ratings'),
+        where('recipeId', '==', recipe.id),
+        where('userId', '==', currentUser.uid)
+      );
+      const unsub = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          setUserRating(snap.docs[0].data().score);
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'ratings');
+      });
+      return unsub;
+    }
+  }, [currentUser, recipe.id]);
+
+  const handleRate = async (score: number) => {
+    if (!currentUser || !recipe.id) return;
+
+    try {
+      const q = query(
+        collection(db, 'ratings'),
+        where('recipeId', '==', recipe.id),
+        where('userId', '==', currentUser.uid)
+      );
+      const snap = await getDocs(q);
+
+      if (!snap.empty) {
+        await updateDoc(doc(db, 'ratings', snap.docs[0].id), { score, createdAt: new Date().toISOString() });
+      } else {
+        await addDoc(collection(db, 'ratings'), {
+          recipeId: recipe.id,
+          userId: currentUser.uid,
+          score,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // Recalculate average
+      const allRatingsSnap = await getDocs(query(collection(db, 'ratings'), where('recipeId', '==', recipe.id)));
+      const allRatings = allRatingsSnap.docs.map(d => d.data() as Rating);
+      const count = allRatings.length;
+      const average = allRatings.reduce((acc, curr) => acc + curr.score, 0) / count;
+
+      await updateDoc(doc(db, 'recipes', recipe.id), {
+        averageRating: average,
+        ratingCount: count
+      });
+
+      toast.success("Bewertung gespeichert!");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'ratings');
+    }
+  };
+
   const exportPDF = () => {
-    const element = document.getElementById('recipe-content');
-    const opt = {
-      margin: 1,
-      filename: `${recipe.title}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
-    };
-    html2pdf().set(opt).from(element).save();
+    window.print();
   };
 
   const shareRecipe = () => {
@@ -852,7 +979,7 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
       animate={{ opacity: 1 }}
       className="max-w-4xl mx-auto"
     >
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 print:hidden">
         <button onClick={onBack} className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-medium">
           <ChevronLeft size={20} />
           <span>Zurück zur Übersicht</span>
@@ -877,7 +1004,7 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
         </div>
       </div>
 
-      <div id="recipe-content" className="bg-white rounded-[3rem] overflow-hidden shadow-xl border border-outline-variant/5">
+      <div id="recipe-content" className="bg-white rounded-[3rem] overflow-hidden shadow-xl border border-outline-variant/5 print:shadow-none print:border-none print:rounded-none">
         <div className="aspect-[21/9] w-full relative">
           <img 
             src={recipe.images[0] || `https://picsum.photos/seed/${recipe.title}/1200/600`} 
@@ -895,30 +1022,47 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
               ))}
             </div>
             <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{recipe.title}</h1>
+            {recipe.averageRating && (
+              <div className="mt-4">
+                <RatingStars rating={recipe.averageRating} count={recipe.ratingCount} size={20} />
+              </div>
+            )}
           </div>
         </div>
 
         <div className="p-10 lg:p-16">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16 p-8 bg-surface-container-low rounded-[2rem]">
-            <div className="flex flex-col items-center text-center gap-2">
-              <Clock className="text-primary" size={24} />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Dauer</span>
-              <span className="font-serif font-bold text-lg">{recipe.duration}</span>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12 p-8 bg-surface-container-low rounded-[2rem]">
+            <div className="flex flex-col gap-2">
+              <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/40">Deine Bewertung</h4>
+              <RatingStars 
+                rating={userRating || 0} 
+                interactive={true} 
+                onRate={handleRate} 
+                size={24} 
+              />
             </div>
-            <div className="flex flex-col items-center text-center gap-2">
-              <Users className="text-primary" size={24} />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Portionen</span>
-              <span className="font-serif font-bold text-lg">{recipe.servings}</span>
-            </div>
-            <div className="flex flex-col items-center text-center gap-2">
-              <BarChart className="text-primary" size={24} />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Schwierigkeit</span>
-              <span className="font-serif font-bold text-lg capitalize">{recipe.difficulty}</span>
-            </div>
-            <div className="flex flex-col items-center text-center gap-2">
-              <UserIcon className="text-primary" size={24} />
-              <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Von</span>
-              <span className="font-serif font-bold text-lg">{recipe.authorName}</span>
+            <div className="h-px md:w-px md:h-12 bg-outline-variant/20" />
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-8">
+              <div className="flex flex-col items-center text-center gap-2">
+                <Clock className="text-primary" size={24} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Dauer</span>
+                <span className="font-serif font-bold text-lg">{recipe.duration}</span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2">
+                <Users className="text-primary" size={24} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Portionen</span>
+                <span className="font-serif font-bold text-lg">{recipe.servings}</span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2">
+                <BarChart className="text-primary" size={24} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Schwierigkeit</span>
+                <span className="font-serif font-bold text-lg capitalize">{recipe.difficulty}</span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2">
+                <UserIcon className="text-primary" size={24} />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40">Von</span>
+                <span className="font-serif font-bold text-lg">{recipe.authorName}</span>
+              </div>
             </div>
           </div>
 
@@ -978,7 +1122,7 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
 };
 
 const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
-  const [formData, setFormData] = useState<Partial<Recipe>>(recipe || {
+  const [formData, setFormData] = useState<Partial<Recipe>>({
     title: '',
     duration: '',
     servings: 4,
@@ -990,7 +1134,8 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     instructions: [''],
     notes: '',
     images: [],
-    isPublic: true
+    isPublic: true,
+    ...recipe
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -999,8 +1144,9 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     setIsSaving(true);
     try {
       // Image Compression
-      const compressedImages = await Promise.all(formData.images.map(async (img) => {
-        if (img.startsWith('data:image')) {
+      const imagesToCompress = formData.images || [];
+      const compressedImages = await Promise.all(imagesToCompress.map(async (img) => {
+        if (img && img.startsWith('data:image')) {
           try {
             const response = await fetch(img);
             const blob = await response.blob();
@@ -1022,15 +1168,48 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
         return img;
       }));
 
-      const data = {
+      const data: any = {
         ...formData,
         images: compressedImages,
         authorId: user.uid,
-        authorName: user.displayName,
+        authorName: user.displayName || 'Family Member',
         createdAt: recipe?.createdAt || new Date().toISOString(),
-        ingredients: formData.ingredients?.filter(i => i.trim() !== ''),
-        instructions: formData.instructions?.filter(i => i.trim() !== ''),
+        ingredients: (formData.ingredients || []).filter((i: string) => i && i.trim() !== ''),
+        instructions: (formData.instructions || []).filter((i: string) => i && i.trim() !== ''),
       };
+
+      // Sanitize for Firestore Rules
+      if (!data.title) data.title = 'Neues Rezept';
+      if (data.ingredients.length === 0) data.ingredients = ['Zutat fehlt'];
+      if (data.instructions.length === 0) data.instructions = ['Schritt fehlt'];
+      
+      if (typeof data.servings !== 'number') {
+        data.servings = parseInt(data.servings as any) || 4;
+      }
+      
+      const validDifficulties = ['einfach', 'mittel', 'schwer'];
+      if (!validDifficulties.includes(data.difficulty as string)) {
+        data.difficulty = 'mittel';
+      }
+
+      // Remove null/undefined fields
+      Object.keys(data).forEach(key => {
+        if (data[key as keyof typeof data] == null) {
+          delete data[key as keyof typeof data];
+        }
+      });
+
+      // Ensure strings
+      if (data.duration != null) data.duration = String(data.duration).substring(0, 49);
+      if (data.notes != null) data.notes = String(data.notes).substring(0, 9999);
+      if (data.authorName != null) data.authorName = String(data.authorName).substring(0, 99);
+      
+      // Ensure arrays
+      if (!Array.isArray(data.categories)) data.categories = [];
+      if (!Array.isArray(data.dietary)) data.dietary = [];
+      if (!Array.isArray(data.tags)) data.tags = [];
+      
+      delete data.id;
 
       if (recipe?.id) {
         await updateDoc(doc(db, 'recipes', recipe.id), data);
@@ -1227,23 +1406,43 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
   const [settings, setSettings] = useState<Settings>({
     allowGoogleLogin: false,
     allowEmailLogin: true,
-    restrictToWhitelist: true
+    restrictToWhitelist: true,
+    allowRegistration: true,
+    allowMagicLink: true
   });
   const [allowedUsers, setAllowedUsers] = useState<AllowedUser[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (doc) => {
-      if (doc.exists()) setSettings(doc.data() as Settings);
+      if (doc.exists()) setSettings({
+        allowGoogleLogin: false,
+        allowEmailLogin: true,
+        restrictToWhitelist: true,
+        allowRegistration: true,
+        allowMagicLink: true,
+        ...doc.data()
+      } as Settings);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/global');
     });
 
-    const unsubUsers = onSnapshot(collection(db, 'allowedUsers'), (snap) => {
+    const unsubAllowedUsers = onSnapshot(collection(db, 'allowedUsers'), (snap) => {
       setAllowedUsers(snap.docs.map(d => d.data()) as any);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'allowedUsers');
     });
 
-    return () => { unsubSettings(); unsubUsers(); };
+    const unsubAllUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      setAllUsers(snap.docs.map(d => d.data() as UserProfile));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    });
+
+    return () => { unsubSettings(); unsubAllowedUsers(); unsubAllUsers(); };
   }, []);
 
   const toggleSetting = async (key: keyof Settings) => {
@@ -1252,7 +1451,7 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
       await setDoc(doc(db, 'settings', 'global'), newSettings);
       toast.success("Einstellungen aktualisiert");
     } catch (error) {
-      toast.error("Fehler beim Speichern");
+      handleFirestoreError(error, OperationType.UPDATE, 'settings/global');
     }
   };
 
@@ -1267,7 +1466,7 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
       setNewEmail('');
       toast.success("Benutzer hinzugefügt");
     } catch (error) {
-      toast.error("Fehler beim Hinzufügen");
+      handleFirestoreError(error, OperationType.CREATE, `allowedUsers/${newEmail}`);
     }
   };
 
@@ -1276,7 +1475,26 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
       await deleteDoc(doc(db, 'allowedUsers', email));
       toast.success("Benutzer entfernt");
     } catch (error) {
-      toast.error("Fehler beim Entfernen");
+      handleFirestoreError(error, OperationType.DELETE, `allowedUsers/${email}`);
+    }
+  };
+
+  const toggleUserRole = async (user: UserProfile) => {
+    try {
+      const newRole = user.role === 'admin' ? 'user' : 'admin';
+      await updateDoc(doc(db, 'users', user.uid), { role: newRole });
+      toast.success(`Rolle für ${user.displayName || user.email} geändert`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  const deleteUser = async (user: UserProfile) => {
+    try {
+      await deleteDoc(doc(db, 'users', user.uid));
+      toast.success("Benutzerprofil gelöscht");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}`);
     }
   };
 
@@ -1307,6 +1525,8 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
             {[
               { key: 'allowGoogleLogin', label: 'Google Login erlauben', desc: 'Nutzer können sich mit Google anmelden.' },
               { key: 'allowEmailLogin', label: 'E-Mail Login erlauben', desc: 'Nutzer können E-Mail & Passwort nutzen.' },
+              { key: 'allowRegistration', label: 'Registrierung erlauben', desc: 'Neue Nutzer können Konten erstellen.' },
+              { key: 'allowMagicLink', label: 'Magic Link erlauben', desc: 'Nutzer können sich per E-Mail-Link anmelden.' },
               { key: 'restrictToWhitelist', label: 'Whitelist erzwingen', desc: 'Nur Nutzer auf der Liste haben Zugriff.' }
             ].map((s: any) => (
               <div key={s.key} className="flex items-center justify-between gap-4">
@@ -1369,6 +1589,70 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       </div>
+
+      {/* User Management */}
+      <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10 mt-8">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+            <UserPlus size={24} />
+          </div>
+          <h3 className="text-xl font-serif font-bold">Nutzerverwaltung</h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-outline-variant/20 text-sm text-on-surface-variant/60">
+                <th className="pb-4 font-medium">Name</th>
+                <th className="pb-4 font-medium">E-Mail</th>
+                <th className="pb-4 font-medium">Rolle</th>
+                <th className="pb-4 font-medium text-right">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allUsers.map(u => (
+                <tr key={u.uid} className="border-b border-outline-variant/10 last:border-0">
+                  <td className="py-4 font-medium">{u.displayName || '-'}</td>
+                  <td className="py-4 text-on-surface-variant">{u.email}</td>
+                  <td className="py-4">
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                      u.role === 'admin' ? "bg-primary/10 text-primary" : "bg-surface-container-high text-on-surface-variant"
+                    )}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => toggleUserRole(u)}
+                        className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        title={u.role === 'admin' ? "Zum Nutzer machen" : "Zum Admin machen"}
+                      >
+                        <ShieldCheck size={18} />
+                      </button>
+                      <button 
+                        onClick={() => deleteUser(u)}
+                        className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Benutzer löschen"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {allUsers.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4} className="text-center py-8 text-sm text-on-surface-variant/40 italic">
+                    Keine registrierten Nutzer
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </motion.div>
   );
 };
@@ -1388,7 +1672,7 @@ const AIScanner = ({ onCancel, onScanComplete }: any) => {
       setIsScanning(true);
       try {
         const data = await scanRecipeImage(base64, file.type);
-        onScanComplete(data);
+        onScanComplete({ ...data, images: [base64] });
         toast.success("Rezept erfolgreich gescannt!");
       } catch (error) {
         toast.error("Scan fehlgeschlagen. Bitte versuche es erneut.");

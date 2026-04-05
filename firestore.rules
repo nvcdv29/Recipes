@@ -33,6 +33,14 @@ service cloud.firestore {
     //   - photoURL: string
     //   - role: string (admin|user)
     //
+    // Collection: ratings
+    // Document ID: auto-generated
+    // Fields:
+    //   - recipeId: string (required)
+    //   - userId: string (required, immutable)
+    //   - score: number (1-5, required)
+    //   - createdAt: string (ISO 8601, required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -53,13 +61,20 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "nl.leitschuh@gmail.com" && request.auth.token.email_verified == true) ||
-         (request.auth.token.email == "noah@leitschuh.de" && request.auth.token.email_verified == true));
+         request.auth.token.email == "nl.leitschuh@gmail.com" ||
+         request.auth.token.email == "noah@leitschuh.de");
+    }
+
+    function isWhitelistEnforced() {
+      let settings = get(/databases/$(database)/documents/settings/global);
+      return settings == null || settings.data.restrictToWhitelist == true;
     }
 
     function isAllowed() {
       return isAuthenticated() && 
-        (exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)) || isAdmin());
+        (!isWhitelistEnforced() ||
+         exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)) || 
+         isAdmin());
     }
 
     function isValidRecipe(data) {
@@ -78,7 +93,17 @@ service cloud.firestore {
              (!('dietary' in data) || (data.dietary is list && data.dietary.size() < 20)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() < 20)) &&
              (!('notes' in data) || (data.notes is string && data.notes.size() < 10000)) &&
-             (!('images' in data) || (data.images is list && data.images.size() < 10));
+             (!('images' in data) || (data.images is list && data.images.size() < 10)) &&
+             (!('averageRating' in data) || (data.averageRating is number && data.averageRating >= 1 && data.averageRating <= 5)) &&
+             (!('ratingCount' in data) || (data.ratingCount is number && data.ratingCount >= 0));
+    }
+
+    function isValidRating(data) {
+      return data.keys().hasAll(['recipeId', 'userId', 'score', 'createdAt']) &&
+             data.recipeId is string &&
+             data.userId is string &&
+             data.score is number && data.score >= 1 && data.score <= 5 &&
+             data.createdAt is string;
     }
 
     function isValidUser(data) {
@@ -95,7 +120,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /settings/{settingId} {
-      allow read: if isAuthenticated();
+      allow read: if true; // Allow public read for login screen config
       allow write: if isAdmin();
     }
 
@@ -109,10 +134,12 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       
       // Users can create/update their own profile, but can't escalate role
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (!('role' in request.resource.data) || request.resource.data.role == 'user');
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == resource.data.role || isAdmin());
+      allow create: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user')) || isAdmin();
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                      request.resource.data.role == resource.data.role) || 
+                      (isAdmin() && isValidUser(request.resource.data));
+      allow delete: if isAdmin();
     }
 
     match /recipes/{recipeId} {
@@ -120,13 +147,27 @@ service cloud.firestore {
       // Private recipes are only readable by the owner
       allow read: if isAllowed() && (resource.data.isPublic == true || isDocOwner() || isAdmin());
       
+      // Allow listing recipes if the query is properly filtered
+      allow list: if isAllowed();
+      
       allow create: if isAllowed() && isValidRecipe(request.resource.data) && 
                       request.resource.data.authorId == request.auth.uid;
                       
-      allow update: if (isDocOwner() || isAdmin()) && isValidRecipe(request.resource.data) &&
-                      request.resource.data.authorId == resource.data.authorId; // authorId is immutable
+      allow update: if isAllowed() && isValidRecipe(request.resource.data) &&
+                      (isDocOwner() || isAdmin() || 
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['averageRating', 'ratingCount'])));
                       
       allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if isAllowed();
+      allow create: if isAllowed() && isValidRating(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid;
+      allow update: if isAllowed() && isValidRating(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid &&
+                      resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
     }
   }
 }

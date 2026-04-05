@@ -17,6 +17,16 @@ export interface Recipe {
   notes?: string;
   createdAt: string;
   isPublic: boolean;
+  averageRating?: number;
+  ratingCount?: number;
+}
+
+export interface Rating {
+  id?: string;
+  recipeId: string;
+  userId: string;
+  score: number;
+  createdAt: string;
 }
 
 export interface UserProfile {
@@ -36,6 +46,8 @@ export interface Settings {
   allowGoogleLogin: boolean;
   allowEmailLogin: boolean;
   restrictToWhitelist: boolean;
+  allowRegistration: boolean;
+  allowMagicLink: boolean;
 }
 
 export enum OperationType {

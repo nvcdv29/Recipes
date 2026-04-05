@@ -19,7 +19,9 @@
         "instructions": { "type": "array", "items": { "type": "string" } },
         "notes": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "isPublic": { "type": "boolean", "description": "Whether the recipe is shared with the family" }
+        "isPublic": { "type": "boolean", "description": "Whether the recipe is shared with the family" },
+        "averageRating": { "type": "number" },
+        "ratingCount": { "type": "number" }
       },
       "required": ["title", "authorId", "ingredients", "instructions"]
     },
@@ -53,14 +55,32 @@
       "properties": {
         "allowGoogleLogin": { "type": "boolean" },
         "allowEmailLogin": { "type": "boolean" },
-        "restrictToWhitelist": { "type": "boolean" }
+        "restrictToWhitelist": { "type": "boolean" },
+        "allowRegistration": { "type": "boolean" },
+        "allowMagicLink": { "type": "boolean" }
       }
+    },
+    "Rating": {
+      "title": "Rating",
+      "description": "A user's star rating for a recipe.",
+      "type": "object",
+      "properties": {
+        "recipeId": { "type": "string" },
+        "userId": { "type": "string" },
+        "score": { "type": "number", "description": "1-5 stars" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["recipeId", "userId", "score"]
     }
   },
   "firestore": {
     "/recipes/{recipeId}": {
       "schema": "Recipe",
       "description": "Collection of all recipes."
+    },
+    "/ratings/{ratingId}": {
+      "schema": "Rating",
+      "description": "Collection of all user ratings."
     },
     "/users/{userId}": {
       "schema": "User",
