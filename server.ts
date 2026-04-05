@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { YoutubeTranscript } from 'youtube-transcript';
+import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
 import * as cheerio from 'cheerio';
 import path from 'path';
 
