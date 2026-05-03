@@ -1,19 +1,32 @@
 import { motion } from 'motion/react';
-import { Star, BookOpen, Clock, Users } from 'lucide-react';
+import { Star, BookOpen, Clock, Users, Heart } from 'lucide-react';
 import { Recipe } from '../../types';
 import { RatingStars } from './RatingStars';
+import { useAuth } from '../../contexts/AuthContext';
+import { cn } from '../../lib/utils';
 
 interface RecipeCardProps {
   recipe: Recipe;
   onClick: () => void;
 }
 
-export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => (
+export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => {
+  const { userProfile, toggleFavorite } = useAuth();
+  const isFavorite = userProfile?.favorites?.includes(recipe.id || '') || false;
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (recipe.id) {
+      toggleFavorite(recipe.id);
+    }
+  };
+
+  return (
   <motion.div 
     layout
     whileHover={{ y: -8 }}
     onClick={onClick}
-    className="bg-white rounded-[2rem] overflow-hidden cursor-pointer group border border-outline-variant/5 hover:shadow-2xl hover:shadow-primary/5 transition-all"
+    className="bg-white rounded-[2rem] overflow-hidden cursor-pointer group border border-outline-variant/5 hover:shadow-2xl hover:shadow-primary/5 transition-all relative"
   >
     <div className="aspect-[4/3] relative overflow-hidden">
       <img 
@@ -23,7 +36,18 @@ export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => (
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+      <div className="absolute top-4 left-4 z-10">
+        <button 
+          onClick={handleFavoriteClick}
+          className="p-2 bg-white/50 hover:bg-white/90 backdrop-blur-md rounded-full shadow-sm transition-all"
+        >
+          <Heart 
+            size={18} 
+            className={cn("transition-colors", isFavorite ? "fill-[#FF4B4B] text-[#FF4B4B]" : "text-gray-600")} 
+          />
+        </button>
+      </div>
+      <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
         <div className="flex flex-wrap justify-end gap-2">
           {recipe.dietary?.slice(0, 2).map(d => (
             <span key={d} className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
@@ -83,4 +107,5 @@ export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => (
       </div>
     </div>
   </motion.div>
-);
+  );
+};

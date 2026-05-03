@@ -27,6 +27,9 @@ import { CookingMode } from './components/recipes/CookingMode';
 // Import Components
 import { AIScanner } from './components/import/AIScanner';
 
+import { FavoritesManager } from './pages/FavoritesManager';
+import { MealPlanner } from './pages/MealPlanner';
+
 const AppContent = () => {
   const { user, userProfile, settings, isWhitelisted, loading, logout } = useAuth();
   const { recipes, loading: recipesLoading } = useRecipes();
@@ -87,6 +90,8 @@ const AppContent = () => {
           else if (v === 'admin') navigate('/settings');
           else if (v === 'scan') navigate('/scan');
           else if (v === 'shopping-lists') navigate('/shopping-lists');
+          else if (v === 'favorites') navigate('/favorites');
+          else if (v === 'meal-planner') navigate('/meal-planner');
         }}
         user={user}
         userProfile={userProfile}
@@ -99,6 +104,8 @@ const AppContent = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/shopping-lists" element={<ShoppingListsPage />} />
+            <Route path="/favorites" element={<FavoritesManager />} />
+            <Route path="/meal-planner" element={<MealPlanner />} />
             <Route path="/recipe/:id" element={<RecipeDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/new" element={

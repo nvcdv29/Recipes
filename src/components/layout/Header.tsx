@@ -1,4 +1,4 @@
-import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart } from 'lucide-react';
+import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart, Bookmark, Calendar } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 import { useLocation } from 'react-router-dom';
@@ -50,6 +50,28 @@ export const Header = ({
             <ShoppingCart size={20} />
           </button>
           
+          <button 
+            onClick={() => setView('favorites')}
+            className={cn(
+              "p-2 rounded-full transition-colors",
+              location.pathname === '/favorites' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+            )}
+            title="Favoriten & Sammlungen"
+          >
+            <Bookmark size={20} />
+          </button>
+
+          <button 
+            onClick={() => setView('meal-planner')}
+            className={cn(
+              "p-2 rounded-full transition-colors",
+              location.pathname === '/meal-planner' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+            )}
+            title="Menüplaner"
+          >
+            <Calendar size={20} />
+          </button>
+
           {isAdmin && (
             <button 
               onClick={() => setView('admin')}

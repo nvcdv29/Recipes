@@ -105,8 +105,57 @@
       },
       "required": ["name", "userId", "items"]
     }
+    "RecipeCollection": {
+      "title": "RecipeCollection",
+      "description": "User created collections of recipes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "recipeIds": { "type": "array", "items": { "type": "string" } },
+        "isShared": { "type": "boolean" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "recipeIds", "isShared"]
+    },
+    "MealPlan": {
+      "title": "MealPlan",
+      "description": "User created meal plan for a week.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "weekStart": { "type": "string" },
+        "meals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "day": { "type": "string" },
+              "type": { "type": "string" },
+              "recipeId": { "type": "string" },
+              "servings": { "type": "number" },
+              "notes": { "type": "string" }
+            },
+            "required": ["id", "day", "type", "servings"]
+          }
+        }
+      },
+      "required": ["userId", "weekStart", "meals"]
+    }
   },
   "firestore": {
+    "/mealPlans/{planId}": {
+      "schema": "MealPlan",
+      "description": "Collection of all meal plans."
+    },
+    "/collections/{collectionId}": {
+      "schema": "RecipeCollection",
+      "description": "Collection of custom recipe lists."
+    },
     "/shoppingLists/{listId}": {
       "schema": "ShoppingList",
       "description": "Collection of all shopping lists."

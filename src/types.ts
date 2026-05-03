@@ -31,12 +31,41 @@ export interface Rating {
   createdAt: string;
 }
 
+export interface RecipeCollection {
+  id?: string;
+  userId: string;
+  name: string;
+  description: string;
+  recipeIds: string[];
+  isShared: boolean;
+  icon: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface MealSlot {
+  id: string;
+  day: string; // 'Montag', 'Dienstag', ...
+  type: 'breakfast' | 'lunch' | 'dinner';
+  recipeId?: string;
+  servings: number;
+  notes?: string;
+}
+
+export interface MealPlan {
+  id?: string;
+  userId: string;
+  weekStart: string; // ISO date 'YYYY-MM-DD'
+  meals: MealSlot[];
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
   photoURL: string;
   role: 'admin' | 'user';
+  favorites?: string[];
 }
 
 export interface AllowedUser {

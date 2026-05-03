@@ -9,18 +9,16 @@ import {
   Loader2, 
   Image as ImageIcon 
 } from 'lucide-react';
-import { 
-  updateDoc, 
-  doc, 
-  collection, 
-  addDoc 
-} from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { db } from '../../firebase';
 import { Recipe, Difficulty, OperationType } from '../../types';
 import { handleFirestoreError } from '../../services/firestore';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
+import { useRecipes } from '../../contexts/RecipeContext';
+import { detectDuplicates } from '../../services/duplicateDetection';
+import { DuplicateDetector } from './DuplicateDetector';
 
 interface RecipeFormProps {
   recipe?: Recipe | null;
@@ -33,6 +31,10 @@ interface RecipeFormProps {
 export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBulkEdit }: RecipeFormProps) => {
   const location = useLocation();
   const scanData = location.state?.recipeData;
+  const { recipes } = useRecipes();
+  
+  const [duplicates, setDuplicates] = useState<{ recipe: Recipe, score: number }[]>([]);
+  const [pendingSaveData, setPendingSaveData] = useState<any>(null);
   
   const [formData, setFormData] = useState<Partial<Recipe>>({
     title: '',
@@ -138,8 +140,28 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
         return;
       }
 
-      if (initialRecipe?.id) {
-        await updateDoc(doc(db, 'recipes', initialRecipe.id), data);
+      if (!initialRecipe?.id) {
+        const foundDuplicates = detectDuplicates(data, recipes);
+        if (foundDuplicates.length > 0) {
+          setDuplicates(foundDuplicates);
+          setPendingSaveData(data);
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      await executeSave(data, initialRecipe?.id);
+    } catch (error) {
+      handleFirestoreError(error, initialRecipe?.id ? OperationType.UPDATE : OperationType.CREATE, initialRecipe?.id ? `recipes/${initialRecipe.id}` : 'recipes');
+      setIsSaving(false);
+    }
+  };
+
+  const executeSave = async (data: any, existingId?: string) => {
+    setIsSaving(true);
+    try {
+      if (existingId) {
+        await updateDoc(doc(db, 'recipes', existingId), data);
         toast.success("Rezept aktualisiert!");
       } else {
         await addDoc(collection(db, 'recipes'), data);
@@ -147,9 +169,30 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
       }
       onSave();
     } catch (error) {
-      handleFirestoreError(error, initialRecipe?.id ? OperationType.UPDATE : OperationType.CREATE, initialRecipe?.id ? `recipes/${initialRecipe.id}` : 'recipes');
+      handleFirestoreError(error, existingId ? OperationType.UPDATE : OperationType.CREATE, existingId ? `recipes/${existingId}` : 'recipes');
     } finally {
       setIsSaving(false);
+      setPendingSaveData(null);
+      setDuplicates([]);
+    }
+  };
+
+  const handleMerge = (existingRecipe: Recipe) => {
+    if (pendingSaveData) {
+      executeSave(pendingSaveData, existingRecipe.id);
+    }
+  };
+
+  const handleSaveAsVariant = () => {
+    if (pendingSaveData) {
+      const variantData = { ...pendingSaveData, title: `${pendingSaveData.title} (Variante)` };
+      executeSave(variantData);
+    }
+  };
+
+  const handleSaveAnyway = () => {
+    if (pendingSaveData) {
+      executeSave(pendingSaveData);
     }
   };
 
@@ -542,6 +585,20 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
           </Button>
         </div>
       </form>
+
+      {duplicates.length > 0 && (
+        <DuplicateDetector 
+          duplicates={duplicates}
+          onMerge={handleMerge}
+          onSaveAsVariant={handleSaveAsVariant}
+          onSaveAnyway={handleSaveAnyway}
+          onCancel={() => {
+            setDuplicates([]);
+            setPendingSaveData(null);
+            setIsSaving(false);
+          }}
+        />
+      )}
     </motion.div>
   );
 };

@@ -6,7 +6,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink
 } from 'firebase/auth';
-import { doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { UserProfile, Settings, OperationType } from '../types';
 import { handleFirestoreError } from '../services/firestore';
@@ -19,6 +19,7 @@ interface AuthContextType {
   isWhitelisted: boolean | null;
   loading: boolean;
   logout: () => void;
+  toggleFavorite: (recipeId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,18 +67,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(u);
       if (u) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', u.uid));
-          if (userDoc.exists()) {
-            setUserProfile(userDoc.data() as UserProfile);
-          } else {
+          const userDocRef = doc(db, 'users', u.uid);
+          
+          // Subscribe to profile changes instantly
+          onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setUserProfile(docSnap.data() as UserProfile);
+            }
+          });
+
+          const userDoc = await getDoc(userDocRef);
+          if (!userDoc.exists()) {
             const newProfile: UserProfile = {
               uid: u.uid,
               displayName: u.displayName || 'Family Member',
               email: u.email || '',
               photoURL: u.photoURL || '',
-              role: 'user'
+              role: 'user',
+              favorites: []
             };
-            await setDoc(doc(db, 'users', u.uid), newProfile);
+            await setDoc(userDocRef, newProfile);
             setUserProfile(newProfile);
           }
 
@@ -86,8 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (adminEmails.includes(u.email || '')) {
             setIsWhitelisted(true);
           } else {
-            const docRef = doc(db, 'allowedUsers', u.email || '');
-            const docSnap = await getDoc(docRef);
+            const docAllowed = doc(db, 'allowedUsers', u.email || '');
+            const docSnap = await getDoc(docAllowed);
             setIsWhitelisted(docSnap.exists());
           }
         } catch (error) {
@@ -110,8 +119,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signOut(auth);
   };
 
+  const toggleFavorite = async (recipeId: string) => {
+    if (!user || !userProfile) return;
+    const currentFavorites = userProfile.favorites || [];
+    const isFavorite = currentFavorites.includes(recipeId);
+    
+    const newFavorites = isFavorite 
+      ? currentFavorites.filter(id => id !== recipeId)
+      : [...currentFavorites, recipeId];
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        favorites: newFavorites
+      });
+      toast.success(isFavorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefügt');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userProfile, settings, isWhitelisted, loading, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, settings, isWhitelisted, loading, logout, toggleFavorite }}>
       {children}
     </AuthContext.Provider>
   );

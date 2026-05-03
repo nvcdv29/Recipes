@@ -115,13 +115,33 @@ service cloud.firestore {
              (!('createdAt' in data) || data.createdAt is string);
     }
 
+    function isValidRecipeCollection(data) {
+      return data.keys().hasAll(['userId', 'name', 'recipeIds', 'isShared']) &&
+             data.userId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.recipeIds is list && data.recipeIds.size() <= 1000 &&
+             data.isShared is bool &&
+             (!('description' in data) || (data.description is string && data.description.size() < 500)) &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() < 50)) &&
+             (!('color' in data) || (data.color is string && data.color.size() < 50)) &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    function isValidMealPlan(data) {
+      return data.keys().hasAll(['userId', 'weekStart', 'meals']) &&
+             data.userId is string &&
+             data.weekStart is string && data.weekStart.size() == 10 &&
+             data.meals is list && data.meals.size() <= 50;
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid is string &&
              data.email is string &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
              (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000)) &&
-             (!('role' in data) || data.role in ['admin', 'user']);
+             (!('role' in data) || data.role in ['admin', 'user']) &&
+             (!('favorites' in data) || (data.favorites is list && data.favorites.size() <= 1000));
     }
 
     // ===============================================================
@@ -185,6 +205,28 @@ service cloud.firestore {
       allow create: if isAllowed() && isValidShoppingList(request.resource.data) && 
                       request.resource.data.userId == request.auth.uid;
       allow update: if isAllowed() && isValidShoppingList(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid &&
+                      resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /collections/{collectionId} {
+      allow read: if isAllowed() && (resource.data.userId == request.auth.uid || resource.data.isShared == true);
+      allow list: if isAllowed() && (resource.data.userId == request.auth.uid || resource.data.isShared == true);
+      allow create: if isAllowed() && isValidRecipeCollection(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid;
+      allow update: if isAllowed() && isValidRecipeCollection(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid &&
+                      resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /mealPlans/{planId} {
+      allow read: if isAllowed() && resource.data.userId == request.auth.uid;
+      allow list: if isAllowed() && resource.data.userId == request.auth.uid;
+      allow create: if isAllowed() && isValidMealPlan(request.resource.data) && 
+                      request.resource.data.userId == request.auth.uid;
+      allow update: if isAllowed() && isValidMealPlan(request.resource.data) && 
                       request.resource.data.userId == request.auth.uid &&
                       resource.data.userId == request.auth.uid;
       allow delete: if isAllowed() && resource.data.userId == request.auth.uid;

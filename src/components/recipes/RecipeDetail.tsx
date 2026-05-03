@@ -21,7 +21,9 @@ import {
   Users, 
   BarChart, 
   User as UserIcon,
-  Play
+  Play,
+  BookmarkPlus,
+  Heart
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -32,6 +34,9 @@ import { Recipe, Rating, OperationType } from '../../types';
 import { handleFirestoreError } from '../../services/firestore';
 import { RatingStars } from './RatingStars';
 import { Button } from '../ui/Button';
+import { useAuth } from '../../contexts/AuthContext';
+import { CollectionSelectorModal } from '../collections/CollectionSelectorModal';
+import { cn } from '../../lib/utils';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -43,10 +48,15 @@ interface RecipeDetailProps {
 }
 
 export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, currentUser }: RecipeDetailProps) => {
+  const { userProfile, toggleFavorite } = useAuth();
   const [userRating, setUserRating] = useState<number | null>(null);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [pdfIncludeImage, setPdfIncludeImage] = useState(false);
   const [pdfIncludeRating, setPdfIncludeRating] = useState(false);
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+
+  const isFavorite = userProfile?.favorites?.includes(recipe.id || '') || false;
+
 
   useEffect(() => {
     if (currentUser && recipe.id) {
@@ -239,6 +249,22 @@ export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, current
             <Printer size={20} />
           </button>
           
+          <button 
+            onClick={() => recipe.id && toggleFavorite(recipe.id)} 
+            className="p-3 hover:bg-surface-container-high rounded-full transition-colors" 
+            title="Zu Favoriten"
+          >
+            <Heart size={20} className={cn("transition-colors", isFavorite ? "fill-[#FF4B4B] text-[#FF4B4B]" : "text-on-surface-variant")} />
+          </button>
+          
+          <button 
+            onClick={() => setShowCollectionModal(true)} 
+            className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" 
+            title="Zu Sammlung hinzufügen"
+          >
+            <BookmarkPlus size={20} />
+          </button>
+
           {showPdfOptions && (
             <div className="absolute top-14 right-12 w-64 bg-white rounded-2xl shadow-xl border border-outline-variant/10 p-4 z-50">
               <h4 className="font-bold mb-4">PDF Export</h4>
@@ -426,6 +452,13 @@ export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, current
           </div>
         </div>
       </div>
+      
+      {showCollectionModal && recipe.id && (
+        <CollectionSelectorModal 
+          recipeId={recipe.id}
+          onClose={() => setShowCollectionModal(false)}
+        />
+      )}
     </motion.div>
   );
 };
