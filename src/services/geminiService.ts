@@ -84,6 +84,7 @@ export async function importRecipeFromUrl(url: string) {
       responseSchema: {
         type: Type.OBJECT,
         properties: {
+          isRecipe: { type: Type.BOOLEAN, description: "Whether the content actually contains a recipe. Set to false if it's just general text, an ad, or unrelated content." },
           title: { type: Type.STRING, description: "The name of the recipe" },
           duration: { type: Type.STRING, description: "Prep/Cook Time (e.g., '45 Min.')" },
           servings: { type: Type.NUMBER, description: "Number of servings" },
@@ -113,59 +114,147 @@ export async function importRecipeFromUrl(url: string) {
   }
 }
 
-export async function scanRecipeImage(base64Image: string, mimeType: string) {
-  const prompt = `
-    Analyze this image of a handwritten or printed recipe. 
-    Extract the following information and return it as a JSON object:
-    {
-      "title": "Recipe Name",
-      "duration": "Prep/Cook Time (estimate if not explicitly stated, e.g., '45 Min.')",
-      "servings": 4,
-      "difficulty": "einfach" | "mittel" | "schwer" (estimate based on steps and ingredients if not explicitly stated),
-      "categories": ["Category1", "Category2"],
-      "dietary": ["Dietary1"],
-      "tags": ["Tag1", "Tag2"],
-      "ingredients": ["Ingredient 1", "Ingredient 2"],
-      "instructions": ["Step 1", "Step 2"],
-      "notes": "Any extra tips"
-    }
-    If you can't find a field, leave it empty or use a sensible default.
-    For difficulty, MUST be one of: "einfach", "mittel", "schwer".
-    Return ONLY the JSON object.
-  `;
+export async function processImagesSequentially(
+  images: { data: string, mimeType: string }[],
+  onProgress?: (current: number, total: number) => void
+) {
+  let allRecipes: any[] = [];
+  let previousRecipe: any = null;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [
+  for (let i = 0; i < images.length; i++) {
+    if (onProgress) {
+      onProgress(i + 1, images.length);
+    }
+    
+    const contextRecipe = previousRecipe ? {
+      title: previousRecipe.title,
+      ingredients: previousRecipe.ingredients,
+      instructions: previousRecipe.instructions
+    } : null;
+
+    const prompt = `
+      Analyze this image of a handwritten or printed recipe.
+      Important Instructions:
+      1. The image might be rotated or upside down. Please read the text accordingly.
+      2. If the image contains multiple distinct recipes, extract EACH recipe as a separate object in the array.
+      ${contextRecipe ? `3. We previously extracted a recipe from the preceding page. Here is its JSON context:
+      ${JSON.stringify(contextRecipe)}
+      If the current image is a CONTINUATION of this previous recipe (e.g., the second page of instructions), set "isContinuationOfPrevious" to true, and ONLY extract the NEW ingredients and instructions found on this page. Do not repeat ingredients or instructions already found on the previous page.
+      ` : ''}
+      4. Be concise. Do not repeat the same instructions or ingredients multiple times.
+      
+      Return a JSON array of recipe objects. Each object must have this structure:
       {
-        parts: [
-          { text: prompt },
+        "isContinuationOfPrevious": boolean, // true ONLY IF this recipe is a continuation of the previous page's recipe
+        "isRecipe": true, // Set to false if it does not contain a recipe
+        "title": "Recipe Name",
+        "duration": "Prep/Cook Time",
+        "servings": 4,
+        "difficulty": "einfach" | "mittel" | "schwer",
+        "categories": ["Category1"],
+        "dietary": ["Dietary1"],
+        "tags": ["Tag1"],
+        "ingredients": ["Ingredient 1"],
+        "instructions": ["Step 1"],
+        "notes": "Any extra tips"
+      }
+      Return ONLY the JSON array.
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
           {
-            inlineData: {
-              data: base64Image.split(',')[1],
-              mimeType: mimeType,
-            },
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  data: images[i].data.split(',')[1],
+                  mimeType: images[i].mimeType,
+                },
+              },
+            ],
           },
         ],
-      },
-    ],
-  });
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+          maxOutputTokens: 8192,
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                isContinuationOfPrevious: { type: Type.BOOLEAN, description: "True if this continues the previous recipe" },
+                isRecipe: { type: Type.BOOLEAN, description: "True if the image contains a recipe" },
+                title: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                servings: { type: Type.NUMBER },
+                difficulty: { type: Type.STRING, description: "Must be 'einfach', 'mittel', or 'schwer'" },
+                categories: { type: Type.ARRAY, items: { type: Type.STRING } },
+                dietary: { type: Type.ARRAY, items: { type: Type.STRING } },
+                tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+                instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                notes: { type: Type.STRING }
+              },
+              required: ["title", "isRecipe"]
+            }
+          }
+        }
+      });
 
-  const text = response.text;
-  
-  if (!text) {
-    throw new Error("No response from AI");
-  }
-
-  try {
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      let text = response.text;
+      if (text) {
+        let extracted;
+        try {
+          extracted = JSON.parse(text);
+        } catch (parseError) {
+          console.warn(`JSON parse failed for image ${i}, attempting to repair...`, parseError);
+          try {
+            // Try to salvage valid objects from the truncated array
+            const lastValidBracket = text.lastIndexOf('}');
+            if (lastValidBracket !== -1) {
+              const repairedText = text.substring(0, lastValidBracket + 1) + ']';
+              extracted = JSON.parse(repairedText);
+              console.log(`Successfully repaired JSON for image ${i}`);
+            } else {
+              throw parseError;
+            }
+          } catch (repairError) {
+            throw parseError;
+          }
+        }
+        
+        extracted.forEach((recipe: any) => {
+          if (recipe.isRecipe === false) return;
+          
+          if (recipe.isContinuationOfPrevious && previousRecipe && allRecipes.length > 0) {
+            // Merge with the last recipe in allRecipes
+            const lastIndex = allRecipes.length - 1;
+            allRecipes[lastIndex] = {
+              ...allRecipes[lastIndex],
+              ...recipe,
+              // Carefully merge arrays
+              ingredients: [...new Set([...(allRecipes[lastIndex].ingredients || []), ...(recipe.ingredients || [])])],
+              instructions: [...new Set([...(allRecipes[lastIndex].instructions || []), ...(recipe.instructions || [])])],
+              imageIndices: [...(allRecipes[lastIndex].imageIndices || []), i]
+            };
+            previousRecipe = allRecipes[lastIndex];
+          } else {
+            // New recipe
+            recipe.imageIndices = [i];
+            allRecipes.push(recipe);
+            previousRecipe = recipe;
+          }
+        });
+      }
+    } catch (e) {
+      console.error(`Failed to process image ${i}:`, e);
+      // We continue with the next image even if one fails
     }
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("Failed to parse Gemini response:", text);
-    throw new Error("Could not parse recipe data. Please try again or enter manually.");
   }
+
+  return allRecipes;
 }

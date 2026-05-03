@@ -15,6 +15,8 @@ export interface Recipe {
   ingredients: string[];
   instructions: string[];
   notes?: string;
+  sourceName?: string;
+  sourceUrl?: string;
   createdAt: string;
   isPublic: boolean;
   averageRating?: number;

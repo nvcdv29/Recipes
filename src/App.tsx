@@ -61,10 +61,16 @@ import {
   UserPlus,
   ShieldAlert,
   Star,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Play,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  Pause,
+  Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { scanRecipeImage, importRecipeFromUrl } from './services/geminiService';
+import { processImagesSequentially, importRecipeFromUrl } from './services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import imageCompression from 'browser-image-compression';
@@ -184,10 +190,11 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'detail' | 'form' | 'scan' | 'admin'>('list');
+  const [view, setView] = useState<'list' | 'detail' | 'form' | 'scan' | 'admin' | 'cooking'>('list');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Alle');
+  const [filterDietary, setFilterDietary] = useState('Alle');
   const [filterDifficulty, setFilterDifficulty] = useState('Alle');
   const [filterDuration, setFilterDuration] = useState('');
   const [filterServings, setFilterServings] = useState('');
@@ -435,16 +442,18 @@ export default function App() {
   const filteredRecipes = useMemo(() => {
     const baseList = searchResults || recipes;
     return baseList.filter(r => {
-      const matchesCategory = filterCategory === 'Alle' || r.categories.includes(filterCategory);
+      const matchesCategory = filterCategory === 'Alle' || (r.categories && r.categories.includes(filterCategory));
+      const matchesDietary = filterDietary === 'Alle' || (r.dietary && r.dietary.includes(filterDietary));
       const matchesDifficulty = filterDifficulty === 'Alle' || r.difficulty === filterDifficulty;
       const matchesDuration = !filterDuration || r.duration?.toLowerCase().includes(filterDuration.toLowerCase());
       const matchesServings = !filterServings || r.servings === parseInt(filterServings);
       const isVisible = r.isPublic || r.authorId === user?.uid;
-      return matchesCategory && matchesDifficulty && matchesDuration && matchesServings && isVisible;
+      return matchesCategory && matchesDietary && matchesDifficulty && matchesDuration && matchesServings && isVisible;
     });
-  }, [recipes, searchResults, filterCategory, filterDifficulty, filterDuration, filterServings, user]);
+  }, [recipes, searchResults, filterCategory, filterDietary, filterDifficulty, filterDuration, filterServings, user]);
 
-  const categories = ['Alle', ...Array.from(new Set(recipes.flatMap(r => r.categories)))];
+  const categories = ['Alle', ...Array.from(new Set(recipes.flatMap(r => r.categories || [])))];
+  const dietaryOptions = ['Alle', ...Array.from(new Set(recipes.flatMap(r => r.dietary || [])))];
 
   if (loading) {
     return (
@@ -572,31 +581,43 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-4 mb-12">
-                  <select
-                    value={filterDifficulty}
-                    onChange={(e) => setFilterDifficulty(e.target.value)}
-                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer"
-                  >
-                    <option value="Alle">Alle Schwierigkeiten</option>
-                    <option value="einfach">Einfach</option>
-                    <option value="mittel">Mittel</option>
-                    <option value="schwer">Schwer</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Dauer (z.B. 30 Min)"
-                    value={filterDuration}
-                    onChange={(e) => setFilterDuration(e.target.value)}
-                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-40 text-on-surface-variant"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Portionen"
-                    value={filterServings}
-                    onChange={(e) => setFilterServings(e.target.value)}
-                    className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-32 text-on-surface-variant"
-                  />
+                <div className="flex flex-col gap-4 mb-12">
+                  <div className="flex flex-wrap gap-4">
+                    <select
+                      value={filterDifficulty}
+                      onChange={(e) => setFilterDifficulty(e.target.value)}
+                      className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer"
+                    >
+                      <option value="Alle">Alle Schwierigkeiten</option>
+                      <option value="einfach">Einfach</option>
+                      <option value="mittel">Mittel</option>
+                      <option value="schwer">Schwer</option>
+                    </select>
+                    <select
+                      value={filterDietary}
+                      onChange={(e) => setFilterDietary(e.target.value)}
+                      className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer"
+                    >
+                      <option value="Alle">Alle Ernährungsarten</option>
+                      {dietaryOptions.filter(d => d !== 'Alle').map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Dauer (z.B. 30 Min)"
+                      value={filterDuration}
+                      onChange={(e) => setFilterDuration(e.target.value)}
+                      className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-40 text-on-surface-variant"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Portionen"
+                      value={filterServings}
+                      onChange={(e) => setFilterServings(e.target.value)}
+                      className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 w-32 text-on-surface-variant"
+                    />
+                  </div>
                 </div>
 
                 {filteredRecipes.length === 0 ? (
@@ -628,7 +649,15 @@ export default function App() {
                   setRecipeToDelete(selectedRecipe.id!);
                   setIsConfirmOpen(true);
                 }}
+                onCook={() => setView('cooking')}
                 currentUser={user}
+              />
+            )}
+
+            {view === 'cooking' && selectedRecipe && (
+              <CookingMode 
+                recipe={selectedRecipe}
+                onClose={() => setView('detail')}
               />
             )}
 
@@ -648,9 +677,67 @@ export default function App() {
                   setView('list');
                   setSharedUrl(null);
                 }} 
-                onScanComplete={(data) => {
-                  setSelectedRecipe(data);
-                  setView('form');
+                onScanComplete={async (data: any, isBulk: boolean = false) => {
+                  if (isBulk) {
+                    try {
+                      for (const recipe of data) {
+                        const recipeData = {
+                          ...recipe,
+                          authorId: user?.uid,
+                          authorName: user?.displayName || 'Family Member',
+                          createdAt: new Date().toISOString(),
+                          isPublic: true,
+                        };
+                        
+                        // Sanitize for Firestore Rules
+                        if (!recipeData.title) recipeData.title = 'Neues Rezept';
+                        if (!recipeData.ingredients || recipeData.ingredients.length === 0) recipeData.ingredients = ['Zutat fehlt'];
+                        if (!recipeData.instructions || recipeData.instructions.length === 0) recipeData.instructions = ['Schritt fehlt'];
+                        
+                        if (typeof recipeData.servings !== 'number') {
+                          recipeData.servings = parseInt(recipeData.servings as any) || 4;
+                        }
+                        
+                        const validDifficulties = ['einfach', 'mittel', 'schwer'];
+                        if (!validDifficulties.includes(recipeData.difficulty as string)) {
+                          recipeData.difficulty = 'mittel';
+                        }
+
+                        // Remove null/undefined fields
+                        Object.keys(recipeData).forEach(key => {
+                          if (recipeData[key as keyof typeof recipeData] == null) {
+                            delete recipeData[key as keyof typeof recipeData];
+                          }
+                        });
+
+                        // Ensure strings
+                        if (recipeData.duration != null) recipeData.duration = String(recipeData.duration).substring(0, 49);
+                        if (recipeData.notes != null) recipeData.notes = String(recipeData.notes).substring(0, 9999);
+                        if (recipeData.authorName != null) recipeData.authorName = String(recipeData.authorName).substring(0, 99);
+                        
+                        // Ensure arrays
+                        if (!Array.isArray(recipeData.categories)) recipeData.categories = [];
+                        if (!Array.isArray(recipeData.dietary)) recipeData.dietary = [];
+                        if (!Array.isArray(recipeData.tags)) recipeData.tags = [];
+                        
+                        // Limit to max 3 images to prevent Firestore 1MB limit
+                        if (recipeData.images && recipeData.images.length > 0) {
+                          recipeData.images = recipeData.images.slice(0, 3);
+                        }
+
+                        delete recipeData.id;
+
+                        await addDoc(collection(db, 'recipes'), recipeData);
+                      }
+                      toast.success(`${data.length} Rezepte erfolgreich gespeichert!`);
+                      setView('list');
+                    } catch (error) {
+                      handleFirestoreError(error, OperationType.CREATE, 'recipes');
+                    }
+                  } else {
+                    setSelectedRecipe(data);
+                    setView('form');
+                  }
                   setSharedUrl(null);
                 }}
               />
@@ -907,8 +994,8 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
-        <div className="flex gap-2">
-          {recipe.dietary.slice(0, 2).map(d => (
+        <div className="flex flex-wrap justify-end gap-2">
+          {recipe.dietary?.slice(0, 2).map(d => (
             <span key={d} className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
               {d}
             </span>
@@ -925,17 +1012,33 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
     <div className="p-6">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-primary/60 uppercase tracking-wider">
-          <span>{recipe.categories[0]}</span>
-          <span className="w-1 h-1 bg-primary/20 rounded-full" />
+          {recipe.categories && recipe.categories.length > 0 && (
+            <>
+              <span>{recipe.categories[0]}</span>
+              <span className="w-1 h-1 bg-primary/20 rounded-full" />
+            </>
+          )}
           <span>{recipe.difficulty}</span>
         </div>
         {recipe.averageRating && (
           <RatingStars rating={recipe.averageRating} count={recipe.ratingCount} size={12} />
         )}
       </div>
-      <h3 className="text-xl font-serif font-bold text-on-surface group-hover:text-primary transition-colors mb-4 line-clamp-1">
+      <h3 className="text-xl font-serif font-bold text-on-surface group-hover:text-primary transition-colors mb-2 line-clamp-1">
         {recipe.title}
       </h3>
+      {(recipe.sourceName || recipe.sourceUrl) && (
+        <div className="mb-4 text-xs text-on-surface-variant/70 flex items-center gap-1.5">
+          <BookOpen size={12} />
+          {recipe.sourceUrl ? (
+            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline" onClick={e => e.stopPropagation()}>
+              {recipe.sourceName || recipe.sourceUrl}
+            </a>
+          ) : (
+            <span>{recipe.sourceName}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between text-on-surface-variant/60 text-sm">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
@@ -955,7 +1058,7 @@ const RecipeCard = ({ recipe, onClick }: { recipe: Recipe, onClick: () => void }
   </motion.div>
 );
 
-const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) => {
+const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, currentUser }: any) => {
   const [userRating, setUserRating] = useState<number | null>(null);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [pdfIncludeImage, setPdfIncludeImage] = useState(false);
@@ -1118,6 +1221,21 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
     }
   };
 
+  const shareViaEmail = () => {
+    const subject = encodeURIComponent(`Rezept: ${recipe.title}`);
+    const body = encodeURIComponent(
+      `Schau dir dieses Rezept an: ${recipe.title}\n\n` +
+      `Dauer: ${recipe.duration}\n` +
+      `Schwierigkeit: ${recipe.difficulty}\n` +
+      `Portionen: ${recipe.servings}\n\n` +
+      `Zutaten:\n${recipe.ingredients.map((ing: string) => `• ${ing}`).join('\n')}\n\n` +
+      `Zubereitung:\n${recipe.instructions.map((inst: string, i: number) => `${i + 1}. ${inst}`).join('\n')}\n\n` +
+      (recipe.notes ? `Notizen:\n${recipe.notes}\n\n` : '') +
+      `Link: ${window.location.href}`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -1130,6 +1248,10 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
           <span>Zurück zur Übersicht</span>
         </button>
         <div className="flex gap-2 relative">
+          <button onClick={onCook} className="p-3 bg-primary text-white hover:bg-primary/90 rounded-full transition-colors flex items-center gap-2 px-5 font-medium mr-2" title="Kochen starten">
+            <Play size={20} className="fill-white" />
+            <span className="hidden sm:inline">Kochen</span>
+          </button>
           <button onClick={() => setShowPdfOptions(!showPdfOptions)} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Drucken / PDF">
             <Printer size={20} />
           </button>
@@ -1165,6 +1287,9 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
           <button onClick={shareRecipe} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Teilen">
             <Share2 size={20} />
           </button>
+          <button onClick={shareViaEmail} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Per E-Mail teilen">
+            <Mail size={20} />
+          </button>
           {(currentUser?.uid === recipe.authorId) && (
             <>
               <button onClick={onEdit} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Bearbeiten">
@@ -1188,14 +1313,31 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-10 left-10 right-10">
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
               {recipe.categories.map(c => (
                 <span key={c} className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-widest border border-white/20">
                   {c}
                 </span>
               ))}
+              {recipe.dietary?.map(d => (
+                <span key={d} className="px-4 py-1.5 bg-primary/80 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-widest border border-primary/20">
+                  {d}
+                </span>
+              ))}
             </div>
-            <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{recipe.title}</h1>
+            <h1 className="text-5xl font-serif font-bold text-white tracking-tight mb-2">{recipe.title}</h1>
+            {(recipe.sourceName || recipe.sourceUrl) && (
+              <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
+                <BookOpen size={16} />
+                {recipe.sourceUrl ? (
+                  <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-white hover:underline transition-colors">
+                    {recipe.sourceName || recipe.sourceUrl}
+                  </a>
+                ) : (
+                  <span>{recipe.sourceName}</span>
+                )}
+              </div>
+            )}
             {recipe.averageRating && (
               <div className="mt-4">
                 <RatingStars rating={recipe.averageRating} count={recipe.ratingCount} size={20} />
@@ -1287,6 +1429,16 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
                   </div>
                 </div>
               )}
+
+              {recipe.tags && recipe.tags.length > 0 && (
+                <div className="mt-12 flex flex-wrap gap-2">
+                  {recipe.tags.map((tag: string) => (
+                    <span key={tag} className="px-4 py-2 bg-surface-container-low rounded-full text-sm font-medium text-on-surface-variant border border-outline-variant/10">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1295,7 +1447,270 @@ const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, currentUser }: any) =>
   );
 };
 
-const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
+const CookingMode = ({ recipe, onClose }: any) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock error:', err);
+      }
+    };
+    requestWakeLock();
+    return () => {
+      if (wakeLock) {
+        wakeLock.release().catch(console.warn);
+      }
+    };
+  }, []);
+
+  const totalSteps = recipe.instructions.length;
+  const progress = ((currentStep + 1) / totalSteps) * 100;
+  const currentText = recipe.instructions[currentStep];
+
+  // Extraction of timer
+  const extractTime = (text: string) => {
+    const match = text.match(/(\d+)\s*(minuten|minute|min|m|stunden|stunde|h)\b/i);
+    if (match) {
+      const val = parseInt(match[1]);
+      if (match[2].toLowerCase().startsWith('h') || match[2].toLowerCase().startsWith('stunde')) {
+        return val * 60; // to minutes
+      }
+      return val;
+    }
+    return null;
+  };
+
+  const detectedMinutes = extractTime(currentText);
+
+  // Timer State
+  const [timerLeft, setTimerLeft] = useState<number | null>(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+
+  useEffect(() => {
+    setTimerLeft(null);
+    setTimerRunning(false);
+  }, [currentStep]);
+
+  useEffect(() => {
+    let interval: any;
+    if (timerRunning && timerLeft !== null && timerLeft > 0) {
+      interval = setInterval(() => {
+        setTimerLeft(t => (t !== null ? t - 1 : null));
+      }, 1000);
+    } else if (timerLeft === 0) {
+      setTimerRunning(false);
+      // Try to play a sound or use vibrate
+      try {
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 200]);
+      } catch (e) {}
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning, timerLeft]);
+
+  const toggleIngredient = (index: number) => {
+    const newSet = new Set(checkedIngredients);
+    if (newSet.has(index)) newSet.delete(index);
+    else newSet.add(index);
+    setCheckedIngredients(newSet);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: '100%' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: '100%' }}
+      className="fixed inset-0 z-[100] bg-surface flex flex-col overflow-hidden"
+      style={{ isolation: 'isolate' }}
+    >
+      {/* Top Bar */}
+      <div className="flex items-center justify-between p-4 bg-white border-b border-outline-variant/10 shadow-sm z-10 shrink-0">
+        <h2 className="text-xl font-serif font-bold text-on-surface line-clamp-1 flex-1">
+          {recipe.title}
+        </h2>
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium text-on-surface-variant">
+            Schritt {currentStep + 1} von {totalSteps}
+          </span>
+          <button 
+            onClick={onClose}
+            className="p-3 bg-surface-container-low hover:bg-surface-container-high rounded-full transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      </div>
+      <div className="w-full h-1.5 bg-surface-container-low shrink-0 relative">
+        <motion.div 
+          className="absolute inset-y-0 left-0 bg-primary"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ ease: "easeInOut" }}
+        />
+      </div>
+
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        {/* Ingredients Panel */}
+        <div className="w-full md:w-80 lg:w-96 bg-surface-container-low border-r border-outline-variant/10 flex flex-col shrink-0">
+          <div className="p-6 overflow-y-auto flex-1">
+            <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-on-surface">
+              <CheckCircle2 size={20} className="text-primary" />
+              Zutaten
+            </h3>
+            <ul className="space-y-4 text-left">
+              {recipe.ingredients.map((ing: string, i: number) => {
+                const checked = checkedIngredients.has(i);
+                return (
+                  <li 
+                    key={i} 
+                    className={cn(
+                      "flex items-start gap-3 cursor-pointer p-3 rounded-xl transition-all",
+                      checked ? "bg-surface text-on-surface-variant/50 line-through" : "hover:bg-surface"
+                    )}
+                    onClick={() => toggleIngredient(i)}
+                  >
+                    <div className="mt-1 shrink-0">
+                      {checked ? <CheckCircle2 size={20} className="text-primary" /> : <Circle size={20} className="text-outline-variant" />}
+                    </div>
+                    <span className="text-base leading-snug">{ing}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+
+        {/* Instruction Panel */}
+        <div className="flex-1 bg-white p-8 md:p-16 flex flex-col relative overflow-y-auto">
+          <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col justify-center">
+            
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+              className="mb-12"
+            >
+              <div className="flex items-start gap-4 md:gap-8 mb-8">
+                <span className="text-6xl md:text-8xl font-serif font-bold text-primary/10 select-none leading-none">
+                  {(currentStep + 1).toString().padStart(2, '0')}
+                </span>
+                <p className="text-2xl md:text-4xl text-on-surface font-serif font-bold leading-relaxed pt-2 md:pt-4 text-left">
+                  {currentText}
+                </p>
+              </div>
+
+              {/* Timer UI */}
+              {(detectedMinutes !== null || timerLeft !== null) && (
+                <div className="mt-8 flex flex-col items-start gap-4 p-6 bg-surface-container-low rounded-3xl border border-outline-variant/10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                      <Timer size={32} />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold">
+                        {timerLeft !== null 
+                          ? `${Math.floor(timerLeft / 60)}:${(timerLeft % 60).toString().padStart(2, '0')}` 
+                          : `${detectedMinutes} Minuten`}
+                      </h4>
+                      <p className="text-sm text-on-surface-variant font-medium">Timer für diesen Schritt</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-2">
+                    {timerLeft === null ? (
+                      <button 
+                        onClick={() => {
+                          setTimerLeft(detectedMinutes! * 60);
+                          setTimerRunning(true);
+                        }}
+                        className="px-6 py-3 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors"
+                      >
+                        <Play size={20} className="fill-white" />
+                        Starten
+                      </button>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => setTimerRunning(!timerRunning)}
+                          className={cn(
+                            "px-6 py-3 text-white rounded-xl font-bold flex items-center gap-2 transition-colors",
+                            timerRunning ? "bg-[#FF3B30] hover:bg-[#FF3B30]/90" : "bg-primary hover:bg-primary/90"
+                          )}
+                        >
+                          {timerRunning ? (
+                            <><Pause size={20} className="fill-white" /> Pause</>
+                          ) : (
+                            <><Play size={20} className="fill-white" /> Fortsetzen</>
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setTimerLeft(null);
+                            setTimerRunning(false);
+                          }}
+                          className="px-6 py-3 bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant rounded-xl font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <X size={20} />
+                          Zurücksetzen
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {timerLeft === 0 && (
+                    <div className="text-[#4CAF50] font-bold text-lg mt-2 flex items-center gap-2 animate-pulse">
+                      <CheckCircle2 size={24} />
+                      Zeit abgelaufen!
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="shrink-0 max-w-3xl w-full mx-auto flex items-center justify-between mt-auto pt-8 border-t border-outline-variant/10 bg-white">
+            <button 
+              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+              disabled={currentStep === 0}
+              className="p-5 flex items-center gap-3 rounded-2xl bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant disabled:opacity-30 disabled:pointer-events-none transition-all"
+            >
+              <ChevronLeft size={28} />
+              <span className="text-lg font-bold hidden sm:block">Zurück</span>
+            </button>
+            
+            {currentStep < totalSteps - 1 ? (
+              <button 
+                onClick={() => setCurrentStep(Math.min(totalSteps - 1, currentStep + 1))}
+                className="p-5 px-10 flex items-center gap-3 rounded-2xl bg-primary text-white hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+              >
+                <span className="text-xl font-bold">Nächster Schritt</span>
+                <ChevronRight size={28} />
+              </button>
+            ) : (
+              <button 
+                onClick={onClose}
+                className="p-5 px-10 flex items-center gap-3 rounded-2xl bg-[#4CAF50] text-white hover:bg-[#43A047] transition-all shadow-lg shadow-[#4CAF50]/20"
+              >
+                <span className="text-xl font-bold">Fertig!</span>
+                <Check size={28} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const RecipeForm = ({ recipe, onCancel, onSave, user, isBulkEdit }: any) => {
   const [formData, setFormData] = useState<Partial<Recipe>>({
     title: '',
     duration: '',
@@ -1307,6 +1722,8 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     ingredients: [''],
     instructions: [''],
     notes: '',
+    sourceName: '',
+    sourceUrl: '',
     images: [],
     isPublic: true,
     ...recipe
@@ -1329,15 +1746,15 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     setIsSaving(true);
     try {
       // Image Compression
-      const imagesToCompress = formData.images || [];
+      const imagesToCompress = (formData.images || []).slice(0, 3); // Limit to 3 images
       const compressedImages = await Promise.all(imagesToCompress.map(async (img) => {
         if (img && img.startsWith('data:image')) {
           try {
             const response = await fetch(img);
             const blob = await response.blob();
             const compressedFile = await imageCompression(blob as File, {
-              maxSizeMB: 0.5,
-              maxWidthOrHeight: 1200,
+              maxSizeMB: 0.3,
+              maxWidthOrHeight: 1600,
               useWebWorker: true
             });
             return new Promise<string>((resolve) => {
@@ -1396,6 +1813,11 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
       
       delete data.id;
 
+      if (isBulkEdit) {
+        onSave(data);
+        return;
+      }
+
       if (recipe?.id) {
         await updateDoc(doc(db, 'recipes', recipe.id), data);
         toast.success("Rezept aktualisiert!");
@@ -1411,17 +1833,17 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
     }
   };
 
-  const addField = (field: 'ingredients' | 'instructions' | 'tags') => {
+  const addField = (field: 'ingredients' | 'instructions' | 'tags' | 'categories' | 'dietary') => {
     setFormData({ ...formData, [field]: [...(formData[field] || []), ''] });
   };
 
-  const updateField = (field: 'ingredients' | 'instructions' | 'tags', index: number, value: string) => {
+  const updateField = (field: 'ingredients' | 'instructions' | 'tags' | 'categories' | 'dietary', index: number, value: string) => {
     const list = [...(formData[field] || [])];
     list[index] = value;
     setFormData({ ...formData, [field]: list });
   };
 
-  const removeField = (field: 'ingredients' | 'instructions' | 'tags', index: number) => {
+  const removeField = (field: 'ingredients' | 'instructions' | 'tags' | 'categories' | 'dietary', index: number) => {
     const list = [...(formData[field] || [])];
     list.splice(index, 1);
     setFormData({ ...formData, [field]: list });
@@ -1512,6 +1934,28 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
               </select>
             </div>
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Quelle (Name)</label>
+              <input 
+                value={formData.sourceName || ''}
+                onChange={e => setFormData({ ...formData, sourceName: e.target.value })}
+                className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                placeholder="z.B. Omas Kochbuch, Chefkoch"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/40 ml-4">Quelle (URL)</label>
+              <input 
+                type="url"
+                value={formData.sourceUrl || ''}
+                onChange={e => setFormData({ ...formData, sourceUrl: e.target.value })}
+                className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                placeholder="https://..."
+              />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -1574,12 +2018,78 @@ const RecipeForm = ({ recipe, onCancel, onSave, user }: any) => {
 
         <div className="space-y-6">
           <h3 className="text-xl font-serif font-bold flex items-center gap-3">
-            Tags
+            Kategorien (z.B. Hauptspeise, Snack)
+            <div className="h-px flex-1 bg-outline-variant/20" />
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {formData.categories?.map((cat, i) => (
+              <div key={i} className="flex items-center bg-surface-container-low rounded-full pl-4 pr-1 py-1 border border-outline-variant/10">
+                <input 
+                  value={cat}
+                  onChange={e => updateField('categories', i, e.target.value)}
+                  className="bg-transparent outline-none w-28 text-sm font-medium"
+                  placeholder="Kategorie..."
+                />
+                <button 
+                  type="button"
+                  onClick={() => removeField('categories', i)}
+                  className="p-1.5 text-on-surface-variant/40 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button"
+              onClick={() => addField('categories')}
+              className="flex items-center gap-2 text-primary font-medium px-4 py-2 hover:bg-primary/5 rounded-full transition-colors border border-primary/20"
+            >
+              <Plus size={16} /> Kategorie hinzufügen
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-xl font-serif font-bold flex items-center gap-3">
+            Ernährungsart (z.B. Vegan, Glutenfrei)
+            <div className="h-px flex-1 bg-outline-variant/20" />
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {formData.dietary?.map((diet, i) => (
+              <div key={i} className="flex items-center bg-surface-container-low rounded-full pl-4 pr-1 py-1 border border-outline-variant/10">
+                <input 
+                  value={diet}
+                  onChange={e => updateField('dietary', i, e.target.value)}
+                  className="bg-transparent outline-none w-28 text-sm font-medium"
+                  placeholder="Ernährungsart..."
+                />
+                <button 
+                  type="button"
+                  onClick={() => removeField('dietary', i)}
+                  className="p-1.5 text-on-surface-variant/40 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button"
+              onClick={() => addField('dietary')}
+              className="flex items-center gap-2 text-primary font-medium px-4 py-2 hover:bg-primary/5 rounded-full transition-colors border border-primary/20"
+            >
+              <Plus size={16} /> Ernährungsart hinzufügen
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <h3 className="text-xl font-serif font-bold flex items-center gap-3">
+            Weitere Tags
             <div className="h-px flex-1 bg-outline-variant/20" />
           </h3>
           <div className="flex flex-wrap gap-3">
             {formData.tags?.map((tag, i) => (
-              <div key={i} className="flex items-center bg-surface-container-low rounded-full pl-4 pr-1 py-1">
+              <div key={i} className="flex items-center bg-surface-container-low rounded-full pl-4 pr-1 py-1 border border-outline-variant/10">
                 <input 
                   value={tag}
                   onChange={e => updateField('tags', i, e.target.value)}
@@ -1971,10 +2481,119 @@ const AdminView = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+const BulkImportOverview = ({ recipes, onCancel, onSaveAll }: any) => {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [currentRecipes, setCurrentRecipes] = useState<any[]>(recipes);
+
+  const handleSaveEdit = (updatedRecipe: any) => {
+    const newRecipes = [...currentRecipes];
+    newRecipes[editingIndex!] = updatedRecipe;
+    setCurrentRecipes(newRecipes);
+    setEditingIndex(null);
+  };
+
+  const handleRemove = (index: number) => {
+    const newRecipes = [...currentRecipes];
+    newRecipes.splice(index, 1);
+    setCurrentRecipes(newRecipes);
+  };
+
+  if (editingIndex !== null) {
+    return (
+      <RecipeForm 
+        recipe={currentRecipes[editingIndex]} 
+        onCancel={() => setEditingIndex(null)}
+        onSave={(updatedRecipe: any) => handleSaveEdit(updatedRecipe)}
+        user={{ uid: 'temp', displayName: 'temp' }} // We just need it to return the data, not actually save to DB yet. Wait, RecipeForm saves directly to DB!
+        isBulkEdit={true}
+      />
+    );
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto"
+    >
+      <div className="bg-white rounded-[3rem] p-10 lg:p-16 shadow-2xl border border-outline-variant/10">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl font-serif font-bold text-primary">Bulk Import Übersicht</h2>
+          <button onClick={onCancel} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        <p className="text-on-surface-variant mb-8">
+          {currentRecipes.length} Rezept(e) erfolgreich erkannt. Bitte überprüfe sie vor dem Speichern.
+        </p>
+
+        <div className="space-y-4 mb-8">
+          {currentRecipes.map((recipe, index) => (
+            <div key={index} className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl border border-outline-variant/10">
+              <div className="flex items-center gap-4">
+                {recipe.images?.[0] ? (
+                  <img src={recipe.images[0]} alt={recipe.title} className="w-16 h-16 object-cover rounded-xl" />
+                ) : (
+                  <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                    <BookOpen size={24} />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-lg">{recipe.title}</h3>
+                  <p className="text-sm text-on-surface-variant/70">
+                    {recipe.sourceName || recipe.sourceUrl || 'Keine Quelle angegeben'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setEditingIndex(index)}
+                  className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                  title="Bearbeiten"
+                >
+                  <Edit3 size={20} />
+                </button>
+                <button 
+                  onClick={() => handleRemove(index)}
+                  className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Entfernen"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-4">
+          <Button variant="secondary" onClick={onCancel} className="flex-1">
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={() => onSaveAll(currentRecipes)} 
+            className="flex-1"
+            disabled={currentRecipes.length === 0}
+          >
+            Alle Speichern ({currentRecipes.length})
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
   const [isScanning, setIsScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState(initialUrl || '');
+  const [sourceName, setSourceName] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [showWarning, setShowWarning] = useState(false);
+  const [pendingData, setPendingData] = useState<any>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkRecipes, setBulkRecipes] = useState<any[]>([]);
+  const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     if (initialUrl) {
@@ -1982,41 +2601,159 @@ const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
     }
   }, [initialUrl]);
 
-  const handleFile = async (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const generateSourceName = (url: string) => {
+    try {
+      const hostname = new URL(url).hostname;
+      const parts = hostname.replace('www.', '').split('.');
+      if (parts.length > 0) {
+        return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      }
+    } catch (e) {
+      // Ignore invalid URL
+    }
+    return url;
+  };
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      setPreview(base64);
-      setIsScanning(true);
-      try {
-        const data = await scanRecipeImage(base64, file.type);
-        onScanComplete({ ...data, images: [base64] });
-        toast.success("Rezept erfolgreich gescannt!");
-      } catch (error) {
-        toast.error("Scan fehlgeschlagen. Bitte versuche es erneut.");
+  const handleFiles = async (e: any) => {
+    const files = Array.from(e.target.files) as File[];
+    if (files.length === 0) return;
+
+    setIsScanning(true);
+    setPreview(null);
+    setScanProgress({ current: 0, total: files.length });
+    
+    try {
+      const base64Images = await Promise.all(files.map(async (file) => {
+        try {
+          // Strict compression for AI scanning to reduce payload
+          const compressedFile = await imageCompression(file, {
+            maxSizeMB: 0.15,
+            maxWidthOrHeight: 800,
+            useWebWorker: true
+          });
+          return new Promise<{data: string, mimeType: string}>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({ data: event.target?.result as string, mimeType: compressedFile.type });
+            };
+            reader.readAsDataURL(compressedFile);
+          });
+        } catch (err) {
+          console.error("Scanner compression failed:", err);
+          // Fallback to original file
+          return new Promise<{data: string, mimeType: string}>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({ data: event.target?.result as string, mimeType: file.type });
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+      }));
+
+      if (base64Images.length === 1) {
+        setPreview(base64Images[0].data);
+      }
+
+      const recipes = await processImagesSequentially(base64Images, (current, total) => {
+        setScanProgress({ current, total });
+      });
+
+      const processedRecipes = recipes.map((r: any) => ({
+        ...r,
+        images: r.imageIndices ? r.imageIndices.map((i: number) => base64Images[i]?.data).filter(Boolean) : (base64Images.length === 1 ? [base64Images[0].data] : []),
+        sourceName: sourceName || (sourceUrl ? generateSourceName(sourceUrl) : ''),
+        sourceUrl: sourceUrl
+      }));
+
+      if (processedRecipes.length === 1) {
+        const data = processedRecipes[0];
+        if (data.isRecipe === false) {
+          setPendingData(data);
+          setShowWarning(true);
+          setIsScanning(false);
+        } else {
+          onScanComplete(data);
+          toast.success("Rezept erfolgreich gescannt!");
+        }
+      } else if (processedRecipes.length > 1) {
+        setBulkRecipes(processedRecipes);
+        setBulkMode(true);
+        setIsScanning(false);
+      } else {
+        toast.error("Keine Rezepte in den Bildern gefunden.");
         setIsScanning(false);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      toast.error("Scan fehlgeschlagen. Bitte versuche es erneut.");
+      setIsScanning(false);
+    }
   };
 
   const handleUrlImport = async (urlToImport = urlInput) => {
     if (!urlToImport.trim()) return;
     
     setIsScanning(true);
-    setPreview(null); // No image preview for URL
+    setPreview(null);
+    
+    const urls = urlToImport.split('\n').map(u => u.trim()).filter(u => u);
+    
     try {
-      const data = await importRecipeFromUrl(urlToImport.trim());
-      onScanComplete(data);
-      toast.success("Rezept erfolgreich importiert!");
+      if (urls.length === 1) {
+        const data = await importRecipeFromUrl(urls[0]);
+        const recipeData = {
+          ...data,
+          sourceName: sourceName || generateSourceName(urls[0]),
+          sourceUrl: sourceUrl || urls[0]
+        };
+        
+        if (data.isRecipe === false) {
+          setPendingData(recipeData);
+          setShowWarning(true);
+          setIsScanning(false);
+        } else {
+          onScanComplete(recipeData);
+          toast.success("Rezept erfolgreich importiert!");
+        }
+      } else {
+        // Bulk import URLs
+        const results = await Promise.allSettled(urls.map(u => importRecipeFromUrl(u)));
+        const successfulRecipes = results
+          .filter(r => r.status === 'fulfilled' && r.value.isRecipe !== false)
+          .map((r: any, i) => ({
+            ...r.value,
+            sourceName: sourceName || generateSourceName(urls[i]),
+            sourceUrl: sourceUrl || urls[i]
+          }));
+
+        if (successfulRecipes.length > 0) {
+          setBulkRecipes(successfulRecipes);
+          setBulkMode(true);
+        } else {
+          toast.error("Keine gültigen Rezepte in den URLs gefunden.");
+        }
+        setIsScanning(false);
+      }
     } catch (error) {
-      toast.error("Import fehlgeschlagen. Bitte überprüfe die URL.");
+      toast.error("Import fehlgeschlagen. Bitte überprüfe die URL(s).");
       setIsScanning(false);
     }
   };
+
+  if (bulkMode) {
+    return (
+      <BulkImportOverview 
+        recipes={bulkRecipes} 
+        onCancel={() => setBulkMode(false)}
+        onSaveAll={(recipesToSave: any[]) => {
+          // We need a way to save multiple recipes. 
+          // For now, we can just pass them back to App.tsx to handle, or save them here.
+          onScanComplete(recipesToSave, true); // true indicates bulk
+        }}
+      />
+    );
+  }
+
 
   return (
     <motion.div 
@@ -2024,13 +2761,43 @@ const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
       animate={{ opacity: 1, y: 0 }}
       className="max-w-2xl mx-auto text-center"
     >
+      <AnimatePresence>
+        {showWarning && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-outline-variant/10"
+            >
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mx-auto mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-2xl font-serif font-bold mb-4">Kein Rezept erkannt</h3>
+              <p className="text-on-surface-variant mb-8 leading-relaxed">
+                Es scheint, als ob der Inhalt kein Rezept enthält. Ein automatischer Import wurde daher nicht empfohlen. 
+                Möchtest du trotzdem fortfahren und die Daten manuell bearbeiten? Es könnte ein Erkennungsfehler der KI sein.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Button onClick={() => onScanComplete(pendingData)} className="w-full">
+                  Bist du dir sicher? Fortfahren
+                </Button>
+                <Button variant="secondary" onClick={() => { setShowWarning(false); setPendingData(null); }} className="w-full">
+                  Abbrechen
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="bg-white rounded-[3rem] p-12 shadow-2xl border border-outline-variant/10">
         <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8">
           <Camera size={48} />
         </div>
         <h2 className="text-3xl font-serif font-bold text-primary mb-4">KI Rezept-Scanner</h2>
         <p className="text-on-surface-variant mb-10 leading-relaxed">
-          Fotografiere ein Rezept, lade ein Bild hoch oder füge den Link einer Rezept-Website (z.B. Chefkoch) oder eines YouTube-Videos ein.
+          Fotografiere ein Rezept, lade Bilder hoch oder füge Links von Rezept-Websites (z.B. Chefkoch) oder YouTube-Videos ein. Bulk-Import wird unterstützt!
         </p>
 
         {isScanning ? (
@@ -2052,19 +2819,48 @@ const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
                 <Loader2 className="animate-spin text-primary" size={48} />
               </div>
             )}
-            <p className="text-primary font-medium animate-pulse">Analysiere Rezept...</p>
+            <div className="text-center">
+              <p className="text-primary font-medium animate-pulse mb-2">Analysiere Rezept(e)...</p>
+              {scanProgress.total > 0 && (
+                <p className="text-sm text-on-surface-variant">
+                  Verarbeite Bild {scanProgress.current} von {scanProgress.total}
+                </p>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-8 text-left">
+            <div className="p-6 bg-surface-container-low rounded-2xl space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Quelle (Optional)</h3>
+              <p className="text-xs text-on-surface-variant/70">Wird für alle importierten Rezepte übernommen.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input 
+                  type="text"
+                  value={sourceName}
+                  onChange={(e) => setSourceName(e.target.value)}
+                  placeholder="Name (z.B. Omas Kochbuch, Chefkoch)"
+                  className="w-full px-4 py-3 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
+                />
+                <input 
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder="URL (z.B. https://chefkoch.de)"
+                  className="w-full px-4 py-3 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
+                />
+              </div>
+            </div>
+
             <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Bild / Foto</h3>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Bild(ern) / Foto(s)</h3>
               <label className="block">
-                <span className="sr-only">Bild auswählen</span>
+                <span className="sr-only">Bilder auswählen</span>
                 <input 
                   type="file" 
                   accept="image/*" 
                   capture="environment"
-                  onChange={handleFile}
+                  multiple
+                  onChange={handleFiles}
                   className="block w-full text-sm text-on-surface-variant
                     file:mr-4 file:py-3 file:px-8
                     file:rounded-full file:border-0
@@ -2085,22 +2881,21 @@ const AIScanner = ({ onCancel, onScanComplete, initialUrl }: any) => {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Web-Link</h3>
-              <div className="flex gap-2">
-                <input 
-                  type="url"
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant/50">Aus Web-Link(s)</h3>
+              <div className="flex flex-col gap-2">
+                <textarea 
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="https://www.chefkoch.de/..."
-                  className="flex-1 px-4 py-3 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  placeholder="https://www.chefkoch.de/...&#10;Ein Link pro Zeile für Bulk-Import"
+                  className="w-full px-4 py-3 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all min-h-[100px] resize-y"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && e.ctrlKey) {
                       e.preventDefault();
                       handleUrlImport();
                     }
                   }}
                 />
-                <Button onClick={handleUrlImport} disabled={!urlInput.trim()}>
+                <Button onClick={() => handleUrlImport()} disabled={!urlInput.trim()}>
                   Importieren
                 </Button>
               </div>
