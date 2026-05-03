@@ -36,8 +36,8 @@ export const useMealPlans = (weekStart: string) => {
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `mealPlans/${planId}`);
       setLoading(false);
+      handleFirestoreError(error, OperationType.GET, `mealPlans/${planId}`);
     });
 
     return () => unsub();

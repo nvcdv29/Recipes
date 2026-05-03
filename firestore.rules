@@ -222,7 +222,7 @@ service cloud.firestore {
     }
 
     match /mealPlans/{planId} {
-      allow read: if isAllowed() && resource.data.userId == request.auth.uid;
+      allow read: if isAllowed() && (resource == null || resource.data.userId == request.auth.uid);
       allow list: if isAllowed() && resource.data.userId == request.auth.uid;
       allow create: if isAllowed() && isValidMealPlan(request.resource.data) && 
                       request.resource.data.userId == request.auth.uid;
