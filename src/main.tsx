@@ -1,8 +1,9 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import './index.css';
 
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
@@ -10,9 +11,17 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+*/
+
+import { AuthProvider } from './contexts/AuthContext';
+import { RecipeProvider } from './contexts/RecipeContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <RecipeProvider>
+        <App />
+      </RecipeProvider>
+    </AuthProvider>
   </StrictMode>,
 );
