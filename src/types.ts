@@ -52,6 +52,22 @@ export interface Settings {
   allowMagicLink: boolean;
 }
 
+export interface ShoppingListItem {
+  ingredient: string;
+  quantity: string;
+  category: string;
+  checked: boolean;
+}
+
+export interface ShoppingList {
+  id?: string;
+  name: string;
+  userId: string;
+  recipes: { recipeId: string; servings: number }[];
+  items: ShoppingListItem[];
+  createdAt: string;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

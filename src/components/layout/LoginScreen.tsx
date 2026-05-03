@@ -9,7 +9,7 @@ import {
   User as UserIcon,
   Loader2
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { Button } from '../ui/Button';
@@ -64,6 +64,7 @@ export const LoginScreen = ({
   if (isBlocked) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
+        <Toaster position="top-center" richColors />
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -84,6 +85,7 @@ export const LoginScreen = ({
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 text-center">
+      <Toaster position="top-center" richColors />
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -156,7 +158,13 @@ export const LoginScreen = ({
                   {settings.allowMagicLink && (
                     <button 
                       type="button"
-                      onClick={() => onMagicLink(email)}
+                      onClick={() => {
+                        if (!email.trim()) {
+                          toast.error("Bitte gib zuerst deine E-Mail-Adresse ein.");
+                          return;
+                        }
+                        onMagicLink(email);
+                      }}
                       className="text-sm text-primary font-medium hover:underline flex items-center justify-center gap-2"
                     >
                       <Mail size={14} /> Magic Link senden

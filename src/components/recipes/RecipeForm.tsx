@@ -16,7 +16,6 @@ import {
   addDoc 
 } from 'firebase/firestore';
 import { toast } from 'sonner';
-import imageCompression from 'browser-image-compression';
 import { db } from '../../firebase';
 import { Recipe, Difficulty, OperationType } from '../../types';
 import { handleFirestoreError } from '../../services/firestore';
@@ -70,6 +69,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
     setIsSaving(true);
     try {
       // Image Compression
+      const { default: imageCompression } = await import('browser-image-compression');
       const imagesToCompress = (formData.images || []).slice(0, 3);
       const compressedImages = await Promise.all(imagesToCompress.map(async (img) => {
         if (img && img.startsWith('data:image')) {
@@ -99,7 +99,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
         images: compressedImages,
         authorId: user.uid,
         authorName: user.displayName || 'Family Member',
-        createdAt: recipe?.createdAt || new Date().toISOString(),
+        createdAt: initialRecipe?.createdAt || new Date().toISOString(),
         ingredients: (formData.ingredients || []).filter((i: string) => i && i.trim() !== ''),
         instructions: (formData.instructions || []).filter((i: string) => i && i.trim() !== ''),
       };
@@ -138,8 +138,8 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
         return;
       }
 
-      if (recipe?.id) {
-        await updateDoc(doc(db, 'recipes', recipe.id), data);
+      if (initialRecipe?.id) {
+        await updateDoc(doc(db, 'recipes', initialRecipe.id), data);
         toast.success("Rezept aktualisiert!");
       } else {
         await addDoc(collection(db, 'recipes'), data);
@@ -147,7 +147,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
       }
       onSave();
     } catch (error) {
-      handleFirestoreError(error, recipe?.id ? OperationType.UPDATE : OperationType.CREATE, recipe?.id ? `recipes/${recipe.id}` : 'recipes');
+      handleFirestoreError(error, initialRecipe?.id ? OperationType.UPDATE : OperationType.CREATE, initialRecipe?.id ? `recipes/${initialRecipe.id}` : 'recipes');
     } finally {
       setIsSaving(false);
     }
@@ -203,7 +203,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
     >
       <div className="flex items-center justify-between mb-12">
         <h2 className="text-4xl font-serif font-bold text-primary">
-          {recipe ? 'Rezept bearbeiten' : 'Neues Rezept'}
+          {initialRecipe ? 'Rezept bearbeiten' : 'Neues Rezept'}
         </h2>
         <button onClick={onCancel} className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
           <X size={24} />

@@ -1,6 +1,7 @@
-import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut } from 'lucide-react';
+import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
+import { useLocation } from 'react-router-dom';
 
 interface HeaderProps {
   view: string;
@@ -22,6 +23,7 @@ export const Header = ({
   const isAdmin = userProfile?.role === 'admin' || 
                   user?.email === 'nl.leitschuh@gmail.com' || 
                   user?.email === 'noah@leitschuh.de';
+  const location = useLocation();
 
   return (
     <nav className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10 print:hidden">
@@ -37,12 +39,23 @@ export const Header = ({
         </div>
 
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setView('shopping-lists')}
+            className={cn(
+              "p-2 rounded-full transition-colors",
+              location.pathname === '/shopping-lists' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+            )}
+            title="Einkaufslisten"
+          >
+            <ShoppingCart size={20} />
+          </button>
+          
           {isAdmin && (
             <button 
               onClick={() => setView('admin')}
               className={cn(
                 "p-2 rounded-full transition-colors",
-                view === 'admin' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+                location.pathname === '/settings' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
               )}
             >
               <SettingsIcon size={20} />

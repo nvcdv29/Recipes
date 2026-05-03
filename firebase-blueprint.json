@@ -71,9 +71,46 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["recipeId", "userId", "score"]
+    },
+    "ShoppingList": {
+      "title": "ShoppingList",
+      "description": "A user's shopping list generated from recipes.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "userId": { "type": "string" },
+        "recipes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recipeId": { "type": "string" },
+              "servings": { "type": "number" }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ingredient": { "type": "string" },
+              "quantity": { "type": "string" },
+              "category": { "type": "string" },
+              "checked": { "type": "boolean" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "userId", "items"]
     }
   },
   "firestore": {
+    "/shoppingLists/{listId}": {
+      "schema": "ShoppingList",
+      "description": "Collection of all shopping lists."
+    },
     "/recipes/{recipeId}": {
       "schema": "Recipe",
       "description": "Collection of all recipes."

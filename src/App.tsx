@@ -18,6 +18,7 @@ import { Loader2 } from 'lucide-react';
 import { HomePage } from './pages/HomePage';
 import { RecipeDetailPage } from './pages/RecipeDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ShoppingListsPage } from './pages/ShoppingListsPage';
 
 // Recipe Components
 import { RecipeForm } from './components/recipes/RecipeForm';
@@ -85,6 +86,7 @@ const AppContent = () => {
           if (v === 'list') navigate('/');
           else if (v === 'admin') navigate('/settings');
           else if (v === 'scan') navigate('/scan');
+          else if (v === 'shopping-lists') navigate('/shopping-lists');
         }}
         user={user}
         userProfile={userProfile}
@@ -96,6 +98,7 @@ const AppContent = () => {
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/shopping-lists" element={<ShoppingListsPage />} />
             <Route path="/recipe/:id" element={<RecipeDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/new" element={
