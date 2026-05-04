@@ -29,6 +29,7 @@ import { AIScanner } from './components/import/AIScanner';
 
 import { FavoritesManager } from './pages/FavoritesManager';
 import { MealPlanner } from './pages/MealPlanner';
+import { useNotifications } from './hooks/useNotifications';
 
 const AppContent = () => {
   const { user, userProfile, settings, isWhitelisted, loading, logout } = useAuth();
@@ -36,6 +37,8 @@ const AppContent = () => {
   const { handleLogin, handleForgotPassword, handleMagicLink } = useAuthActions(settings);
   const { saveBulkRecipes } = useRecipeActions();
   const navigate = useNavigate();
+
+  useNotifications();
 
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
 

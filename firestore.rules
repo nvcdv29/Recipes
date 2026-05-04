@@ -144,6 +144,73 @@ service cloud.firestore {
              (!('favorites' in data) || (data.favorites is list && data.favorites.size() <= 1000));
     }
 
+    function isValidRecipeVariant(data) {
+      return data.keys().hasAll(['parentRecipeId', 'ownerId', 'variantName', 'differences', 'createdAt']) &&
+             data.parentRecipeId is string &&
+             data.ownerId is string &&
+             data.variantName is string && data.variantName.size() > 0 && data.variantName.size() < 100 &&
+             data.differences is map &&
+             data.createdAt is string;
+    }
+
+    function isValidRecipeVersion(data) {
+      return data.keys().hasAll(['recipeId', 'version', 'changes', 'changedBy', 'changeDate']) &&
+             data.recipeId is string &&
+             data.version is number && data.version >= 1 &&
+             data.changes is map &&
+             data.changedBy is string &&
+             data.changeDate is string &&
+             (!('changeDescription' in data) || (data.changeDescription is string && data.changeDescription.size() < 500));
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['recipeId', 'userId', 'text', 'mentions', 'createdAt']) &&
+             data.recipeId is string &&
+             data.userId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000 &&
+             data.mentions is list && data.mentions.size() <= 50 &&
+             data.createdAt is string &&
+             (!('replyTo' in data) || data.replyTo is string);
+    }
+    
+    function isValidCookingLog(data) {
+      return data.keys().hasAll(['recipeId', 'userId', 'cookedDate', 'photos', 'createdAt']) &&
+             data.recipeId is string &&
+             data.userId is string &&
+             data.cookedDate is string &&
+             data.photos is list && data.photos.size() <= 20 &&
+             data.createdAt is string &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 5000)) &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 1 && data.rating <= 5));
+    }
+    
+    function isValidActivity(data) {
+      return data.keys().hasAll(['userId', 'type', 'targetId', 'createdAt']) &&
+             data.userId is string &&
+             data.type in ['recipe_added', 'cooking_log', 'comment', 'reaction', 'recommendation'] &&
+             data.targetId is string &&
+             data.createdAt is string &&
+             (!('targetName' in data) || data.targetName is string) &&
+             (!('metadata' in data) || data.metadata is map);
+    }
+    
+    function isValidReaction(data) {
+      return data.keys().hasAll(['recipeId', 'userId', 'emoji', 'createdAt']) &&
+             data.recipeId is string &&
+             data.userId is string &&
+             data.emoji is string && data.emoji.size() > 0 && data.emoji.size() < 10 &&
+             data.createdAt is string;
+    }
+    
+    function isValidRecommendation(data) {
+      return data.keys().hasAll(['recipeId', 'fromUserId', 'toUserId', 'createdAt']) &&
+             data.recipeId is string &&
+             data.fromUserId is string &&
+             data.toUserId is string &&
+             data.createdAt is string &&
+             (!('message' in data) || (data.message is string && data.message.size() < 1000));
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -187,6 +254,25 @@ service cloud.firestore {
                        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['averageRating', 'ratingCount'])));
                       
       allow delete: if isDocOwner() || isAdmin();
+      
+      match /versions/{versionId} {
+        allow read: if isAllowed();
+        allow create: if isAllowed() && isValidRecipeVersion(request.resource.data) &&
+                        request.resource.data.changedBy == request.auth.uid;
+        allow update: if false; // Versions are immutable
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /recipeVariants/{variantId} {
+      allow read: if isAllowed();
+      allow list: if isAllowed();
+      allow create: if isAllowed() && isValidRecipeVariant(request.resource.data) && 
+                      request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAllowed() && isValidRecipeVariant(request.resource.data) && 
+                      request.resource.data.ownerId == request.auth.uid &&
+                      resource.data.ownerId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.ownerId == request.auth.uid;
     }
 
     match /ratings/{ratingId} {
@@ -230,6 +316,43 @@ service cloud.firestore {
                       request.resource.data.userId == request.auth.uid &&
                       resource.data.userId == request.auth.uid;
       allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /comments/{commentId} {
+      allow read: if isAllowed();
+      allow list: if isAllowed();
+      allow create: if isAllowed() && isValidComment(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAllowed() && isValidComment(request.resource.data) && request.resource.data.userId == request.auth.uid && resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /cookingLogs/{logId} {
+      allow read: if isAllowed();
+      allow list: if isAllowed();
+      allow create: if isAllowed() && isValidCookingLog(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAllowed() && isValidCookingLog(request.resource.data) && request.resource.data.userId == request.auth.uid && resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /activities/{activityId} {
+      allow read: if isAllowed();
+      allow list: if isAllowed();
+      allow create: if isAllowed() && isValidActivity(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /reactions/{reactionId} {
+      allow read: if isAllowed();
+      allow list: if isAllowed();
+      allow create: if isAllowed() && isValidReaction(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /recommendations/{recommendationId} {
+      allow read: if isAllowed() && (resource.data.fromUserId == request.auth.uid || resource.data.toUserId == request.auth.uid);
+      allow list: if isAllowed() && (resource.data.fromUserId == request.auth.uid || resource.data.toUserId == request.auth.uid);
+      allow create: if isAllowed() && isValidRecommendation(request.resource.data) && request.resource.data.fromUserId == request.auth.uid;
+      allow delete: if isAllowed() && resource.data.fromUserId == request.auth.uid;
     }
   }
 }

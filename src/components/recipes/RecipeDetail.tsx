@@ -36,7 +36,12 @@ import { RatingStars } from './RatingStars';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { CollectionSelectorModal } from '../collections/CollectionSelectorModal';
+import { VersionHistory } from './VersionHistory';
+import { VariantManager } from './VariantManager';
 import { cn } from '../../lib/utils';
+import { CommentSection } from './CommentSection';
+import { CookingLogCard } from './CookingLogCard';
+import { useSocialFeatures } from '../../hooks/useSocialFeatures';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -47,16 +52,22 @@ interface RecipeDetailProps {
   currentUser: any;
 }
 
-export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, currentUser }: RecipeDetailProps) => {
+export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, onCook, currentUser }: RecipeDetailProps) => {
   const { userProfile, toggleFavorite } = useAuth();
+  const [recipe, setRecipe] = useState(initialRecipe);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
   const [pdfIncludeImage, setPdfIncludeImage] = useState(false);
   const [pdfIncludeRating, setPdfIncludeRating] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
+  
+  const { reactions, toggleReaction } = useSocialFeatures(recipe.id);
 
   const isFavorite = userProfile?.favorites?.includes(recipe.id || '') || false;
 
+  useEffect(() => {
+    setRecipe(initialRecipe); // Update if parent changes
+  }, [initialRecipe]);
 
   useEffect(() => {
     if (currentUser && recipe.id) {
@@ -241,6 +252,10 @@ export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, current
           <span>Zurück zur Übersicht</span>
         </button>
         <div className="flex gap-2 relative">
+          {recipe.id && (
+            <VariantManager recipe={recipe} currentUser={currentUser} onVariantSelected={setRecipe} />
+          )}
+          
           <button onClick={onCook} className="p-3 bg-primary text-white hover:bg-primary/90 rounded-full transition-colors flex items-center gap-2 px-5 font-medium mr-2" title="Kochen starten">
             <Play size={20} className="fill-white" />
             <span className="hidden sm:inline">Kochen</span>
@@ -249,6 +264,10 @@ export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, current
             <Printer size={20} />
           </button>
           
+          {recipe.id && (
+             <VersionHistory recipe={recipe} />
+          )}
+
           <button 
             onClick={() => recipe.id && toggleFavorite(recipe.id)} 
             className="p-3 hover:bg-surface-container-high rounded-full transition-colors" 
@@ -448,6 +467,32 @@ export const RecipeDetail = ({ recipe, onBack, onEdit, onDelete, onCook, current
                   ))}
                 </div>
               )}
+              
+              <div className="mt-8 flex gap-2">
+                {['❤️', '🔥', '👍', '😋', '😍'].map(emoji => {
+                  const hasReacted = reactions.some(r => r.emoji === emoji && r.userId === currentUser?.uid);
+                  const count = reactions.filter(r => r.emoji === emoji).length;
+                  
+                  return (
+                    <button
+                      key={emoji}
+                      onClick={() => toggleReaction(emoji)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-lg shadow-sm border transition-all active:scale-95",
+                        hasReacted ? "bg-primary/20 border-primary shadow-inner" : "bg-white border-gray-200 hover:bg-gray-50"
+                      )}
+                    >
+                      {emoji} {count > 0 && <span className="text-sm font-medium text-gray-700 ml-1">{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <hr className="my-12 border-gray-200" />
+              
+              {recipe.id && <CookingLogCard recipeId={recipe.id} />}
+              {recipe.id && <CommentSection recipeId={recipe.id} />}
+              
             </div>
           </div>
         </div>

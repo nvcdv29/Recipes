@@ -46,7 +46,15 @@ export function useRecipeActions() {
         }
 
         delete recipeData.id;
-        await addDoc(collection(db, 'recipes'), recipeData);
+        const docRef = await addDoc(collection(db, 'recipes'), recipeData);
+        
+        await addDoc(collection(db, 'activities'), {
+          userId: user?.uid,
+          type: 'recipe_added',
+          targetId: docRef.id,
+          targetName: recipeData.title,
+          createdAt: new Date().toISOString()
+        });
       }
       toast.success(`${recipes.length} Rezepte erfolgreich gespeichert!`);
       return true;

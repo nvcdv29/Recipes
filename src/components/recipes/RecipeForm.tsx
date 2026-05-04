@@ -161,10 +161,55 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
     setIsSaving(true);
     try {
       if (existingId) {
-        await updateDoc(doc(db, 'recipes', existingId), data);
+        // Calculate differences for versioning
+        const { diff } = await import('deep-object-diff');
+        const changes = diff(initialRecipe || {}, data) as Partial<Recipe>;
+        
+        if (Object.keys(changes).length > 0) {
+          // Get current highest version
+          const { getRecipeVersions } = await import('../../services/recipeVersioning');
+          const versions = await getRecipeVersions(existingId);
+          const nextVersion = versions.length > 0 ? versions[0].version + 1 : 1;
+          
+          await updateDoc(doc(db, 'recipes', existingId), data);
+          
+          const changedKeys = Object.keys(changes);
+          const description = changedKeys.length > 0 
+            ? `Aktualisiert: ${changedKeys.join(', ')}`
+            : 'Rezept aktualisiert';
+
+          // Save version
+          await addDoc(collection(db, 'recipes', existingId, 'versions'), {
+            recipeId: existingId,
+            version: nextVersion,
+            changes,
+            changedBy: user.uid,
+            changeDate: new Date().toISOString(),
+            changeDescription: description
+          });
+        }
         toast.success("Rezept aktualisiert!");
       } else {
-        await addDoc(collection(db, 'recipes'), data);
+        const docRef = await addDoc(collection(db, 'recipes'), data);
+        
+        await addDoc(collection(db, 'activities'), {
+          userId: user.uid,
+          type: 'recipe_added',
+          targetId: docRef.id,
+          targetName: data.title,
+          createdAt: new Date().toISOString()
+        });
+        
+        // Save initial version 1
+        await addDoc(collection(db, 'recipes', docRef.id, 'versions'), {
+          recipeId: docRef.id,
+          version: 1,
+          changes: data,
+          changedBy: user.uid,
+          changeDate: new Date().toISOString(),
+          changeDescription: 'Rezept erstellt'
+        });
+        
         toast.success("Rezept gespeichert!");
       }
       onSave();

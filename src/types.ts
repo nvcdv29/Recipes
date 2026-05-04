@@ -97,6 +97,73 @@ export interface ShoppingList {
   createdAt: string;
 }
 
+export interface RecipeVersion {
+  id?: string;
+  recipeId: string;
+  version: number;
+  changes: Partial<Recipe>;
+  changedBy: string;
+  changeDate: string;
+  changeDescription?: string;
+}
+
+export interface RecipeVariant {
+  id?: string;
+  parentRecipeId: string;
+  ownerId: string;
+  variantName: string; // "Noahs glutenfreie Version"
+  differences: Partial<Recipe>;
+  createdAt: string;
+}
+
+export interface Comment {
+  id?: string;
+  recipeId: string;
+  userId: string;
+  text: string;
+  mentions: string[]; // user IDs
+  createdAt: string;
+  replyTo?: string;
+}
+
+export interface CookingLog {
+  id?: string;
+  recipeId: string;
+  userId: string;
+  cookedDate: string;
+  photos: string[];
+  notes?: string;
+  rating?: number;
+  createdAt: string;
+}
+
+export interface Activity {
+  id?: string;
+  userId: string;
+  type: 'recipe_added' | 'cooking_log' | 'comment' | 'reaction' | 'recommendation';
+  targetId: string;
+  targetName?: string;
+  createdAt: string;
+  metadata?: any;
+}
+
+export interface Reaction {
+  id?: string;
+  recipeId: string;
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
+export interface Recommendation {
+  id?: string;
+  recipeId: string;
+  fromUserId: string;
+  toUserId: string;
+  message?: string;
+  createdAt: string;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

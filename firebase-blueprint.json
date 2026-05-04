@@ -145,9 +145,44 @@
         }
       },
       "required": ["userId", "weekStart", "meals"]
+    },
+    "RecipeVariant": {
+      "title": "RecipeVariant",
+      "description": "A variant of a recipe.",
+      "type": "object",
+      "properties": {
+        "parentRecipeId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "variantName": { "type": "string" },
+        "differences": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["parentRecipeId", "ownerId", "variantName", "differences"]
+    },
+    "RecipeVersion": {
+      "title": "RecipeVersion",
+      "description": "A version history of a recipe.",
+      "type": "object",
+      "properties": {
+        "recipeId": { "type": "string" },
+        "version": { "type": "number" },
+        "changes": { "type": "object" },
+        "changedBy": { "type": "string" },
+        "changeDate": { "type": "string", "format": "date-time" },
+        "changeDescription": { "type": "string" }
+      },
+      "required": ["recipeId", "version", "changes", "changedBy", "changeDate"]
     }
   },
   "firestore": {
+    "/recipeVariants/{variantId}": {
+      "schema": "RecipeVariant",
+      "description": "Collection of recipe variants."
+    },
+    "/recipes/{recipeId}/versions/{versionId}": {
+      "schema": "RecipeVersion",
+      "description": "Collection of recipe versions."
+    },
     "/mealPlans/{planId}": {
       "schema": "MealPlan",
       "description": "Collection of all meal plans."
