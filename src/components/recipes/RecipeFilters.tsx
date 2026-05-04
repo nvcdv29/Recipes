@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useUIStore } from '../../store/uiStore';
+import { useSearchParams } from 'react-router-dom';
 
 interface RecipeFiltersProps {
   categories: string[];
@@ -11,16 +11,22 @@ export const RecipeFilters = ({
   categories,
   dietaryOptions
 }: RecipeFiltersProps) => {
-  const {
-    searchQuery,
-    setSearchQuery,
-    filterCategory,
-    setFilterCategory,
-    filterDifficulty,
-    setFilterDifficulty,
-    filterDietary,
-    setFilterDietary
-  } = useUIStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const searchQuery = searchParams.get('q') || '';
+  const filterCategory = searchParams.get('category') || 'Alle';
+  const filterDietary = searchParams.get('dietary') || 'Alle';
+  const filterDifficulty = searchParams.get('difficulty') || 'Alle';
+
+  const updateParam = (key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (!value || value === 'Alle') {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
+    }
+    setSearchParams(newParams, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -31,12 +37,12 @@ export const RecipeFilters = ({
             type="text" 
             placeholder="Rezepte oder Zutaten suchen..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => updateParam('q', e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-surface-container-low rounded-2xl border-none focus:ring-2 focus:ring-primary/20 transition-all outline-none"
           />
           {searchQuery && (
             <button 
-              onClick={() => setSearchQuery('')}
+              onClick={() => updateParam('q', '')}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant"
             >
               <X size={16} />
@@ -47,7 +53,7 @@ export const RecipeFilters = ({
           {categories.map(cat => (
             <button
               key={cat}
-              onClick={() => setFilterCategory(cat)}
+              onClick={() => updateParam('category', cat)}
               className={cn(
                 "px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                 filterCategory === cat 
@@ -64,7 +70,7 @@ export const RecipeFilters = ({
       <div className="flex flex-wrap gap-4">
         <select
           value={filterDifficulty}
-          onChange={(e) => setFilterDifficulty(e.target.value)}
+          onChange={(e) => updateParam('difficulty', e.target.value)}
           className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
         >
           <option value="Alle">Alle Schwierigkeiten</option>
@@ -74,7 +80,7 @@ export const RecipeFilters = ({
         </select>
         <select
           value={filterDietary}
-          onChange={(e) => setFilterDietary(e.target.value)}
+          onChange={(e) => updateParam('dietary', e.target.value)}
           className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
         >
           {dietaryOptions.map(opt => (

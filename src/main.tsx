@@ -14,14 +14,11 @@ if ('serviceWorker' in navigator) {
 */
 
 import { AuthProvider } from './contexts/AuthContext';
-import { RecipeProvider } from './contexts/RecipeContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
-      <RecipeProvider>
-        <App />
-      </RecipeProvider>
+      <App />
     </AuthProvider>
   </StrictMode>,
 );

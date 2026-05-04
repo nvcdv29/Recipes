@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useRecipes } from './contexts/RecipeContext';
 import { useAuthActions } from './hooks/useAuthActions';
@@ -13,27 +13,32 @@ import { Header } from './components/layout/Header';
 import { LoginScreen } from './components/layout/LoginScreen';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
-
-// Pages
-import { HomePage } from './pages/HomePage';
-import { RecipeDetailPage } from './pages/RecipeDetailPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ShoppingListsPage } from './pages/ShoppingListsPage';
-
-// Recipe Components
-import { RecipeForm } from './components/recipes/RecipeForm';
-import { CookingMode } from './components/recipes/CookingMode';
-
-// Import Components
-import { AIScanner } from './components/import/AIScanner';
-
-import { FavoritesManager } from './pages/FavoritesManager';
-import { MealPlanner } from './pages/MealPlanner';
+import { PrivateRoute } from './components/layout/PrivateRoute';
 import { useNotifications } from './hooks/useNotifications';
+
+// Lazy Loaded Pages
+const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const RecipeDetailPage = lazy(() => import('./pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const ShoppingListsPage = lazy(() => import('./pages/ShoppingListsPage').then(m => ({ default: m.ShoppingListsPage })));
+const FavoritesManager = lazy(() => import('./pages/FavoritesManager').then(m => ({ default: m.FavoritesManager })));
+const MealPlanner = lazy(() => import('./pages/MealPlanner').then(m => ({ default: m.MealPlanner })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+
+// Lazy Loaded Components
+const RecipeForm = lazy(() => import('./components/recipes/RecipeForm').then(m => ({ default: m.RecipeForm })));
+const CookingMode = lazy(() => import('./components/recipes/CookingMode').then(m => ({ default: m.CookingMode })));
+const AIScanner = lazy(() => import('./components/import/AIScanner').then(m => ({ default: m.AIScanner })));
+
+const SuspenseFallback = () => (
+  <div className="flex justify-center items-center py-24">
+    <Loader2 className="animate-spin text-primary" size={48} />
+  </div>
+);
 
 const AppContent = () => {
   const { user, userProfile, settings, isWhitelisted, loading, logout } = useAuth();
-  const { recipes, loading: recipesLoading } = useRecipes();
+  const { recipes } = useRecipes();
   const { handleLogin, handleForgotPassword, handleMagicLink } = useAuthActions(settings);
   const { saveBulkRecipes } = useRecipeActions();
   const navigate = useNavigate();
@@ -54,7 +59,7 @@ const AppContent = () => {
     
     if (urlMatch) {
       setSharedUrl(urlMatch[0]);
-      navigate('/scan');
+      navigate('/import');
       window.history.replaceState({}, document.title, '/');
     }
   }, [navigate]);
@@ -91,10 +96,10 @@ const AppContent = () => {
         setView={(v) => {
           if (v === 'list') navigate('/');
           else if (v === 'admin') navigate('/settings');
-          else if (v === 'scan') navigate('/scan');
+          else if (v === 'scan') navigate('/import');
           else if (v === 'shopping-lists') navigate('/shopping-lists');
-          else if (v === 'favorites') navigate('/favorites');
-          else if (v === 'meal-planner') navigate('/meal-planner');
+          else if (v === 'favorites') navigate('/collections');
+          else if (v === 'meal-planner') navigate('/meal-plan');
         }}
         user={user}
         userProfile={userProfile}
@@ -104,42 +109,60 @@ const AppContent = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/shopping-lists" element={<ShoppingListsPage />} />
-            <Route path="/favorites" element={<FavoritesManager />} />
-            <Route path="/meal-planner" element={<MealPlanner />} />
-            <Route path="/recipe/:id" element={<RecipeDetailPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/new" element={
-              <RecipeForm 
-                onCancel={() => navigate('/')} 
-                onSave={() => navigate('/')}
-                user={user}
-              />
-            } />
-            <Route path="/edit/:id" element={<EditRecipeRoute user={user} recipes={recipes} />} />
-            <Route path="/cook/:id" element={<CookRecipeRoute recipes={recipes} />} />
-            <Route path="/scan" element={
-              <AIScanner 
-                initialUrl={sharedUrl}
-                onCancel={() => {
-                  navigate('/');
-                  setSharedUrl(null);
-                }} 
-                onScanComplete={async (data: any, isBulk: boolean = false) => {
-                  if (isBulk) {
-                    const success = await saveBulkRecipes(data, user);
-                    if (success) navigate('/');
-                  } else {
-                    // Navigate to form with state or store data temporarily
-                    navigate('/new', { state: { recipeData: data } });
-                  }
-                  setSharedUrl(null);
-                }}
-              />
-            } />
-          </Routes>
+          <Suspense fallback={<SuspenseFallback />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/shopping-lists" element={<PrivateRoute><ShoppingListsPage /></PrivateRoute>} />
+              <Route path="/collections" element={<PrivateRoute><FavoritesManager /></PrivateRoute>} />
+              {/* Backwards compatibility for favorites route */}
+              <Route path="/favorites" element={<Navigate to="/collections" replace />} />
+              
+              <Route path="/meal-plan" element={<PrivateRoute><MealPlanner /></PrivateRoute>} />
+              {/* Backwards compatibility for meal-planner route */}
+              <Route path="/meal-planner" element={<Navigate to="/meal-plan" replace />} />
+              
+              <Route path="/recipes/:id" element={<RecipeDetailPage />} />
+              {/* Backwards compatibility for recipe route */}
+              <Route path="/recipe/:id" element={<Navigate to={`/recipes/${window.location.pathname.split('/').pop()}`} replace />} />
+              
+              <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+              <Route path="/new" element={
+                <PrivateRoute>
+                  <RecipeForm 
+                    onCancel={() => navigate('/')} 
+                    onSave={() => navigate('/')}
+                    user={user}
+                  />
+                </PrivateRoute>
+              } />
+              
+              <Route path="/edit/:id" element={<PrivateRoute><EditRecipeRoute user={user} recipes={recipes} /></PrivateRoute>} />
+              <Route path="/cook/:id" element={<CookRecipeRoute recipes={recipes} />} />
+              <Route path="/import" element={
+                <PrivateRoute>
+                  <AIScanner 
+                    initialUrl={sharedUrl}
+                    onCancel={() => {
+                      navigate('/');
+                      setSharedUrl(null);
+                    }} 
+                    onScanComplete={async (data: any, isBulk: boolean = false) => {
+                      if (isBulk) {
+                        const success = await saveBulkRecipes(data, user);
+                        if (success) navigate('/');
+                      } else {
+                        navigate('/new', { state: { recipeData: data } });
+                      }
+                      setSharedUrl(null);
+                    }}
+                  />
+                </PrivateRoute>
+              } />
+              {/* Backwards compatibility for scan route */}
+              <Route path="/scan" element={<Navigate to="/import" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
         </AnimatePresence>
       </main>
     </div>
@@ -156,8 +179,8 @@ const EditRecipeRoute = ({ user, recipes }: any) => {
   return (
     <RecipeForm 
       recipe={recipe} 
-      onCancel={() => navigate(`/recipe/${id}`)} 
-      onSave={() => navigate(`/recipe/${id}`)}
+      onCancel={() => navigate(`/recipes/${id}`)} 
+      onSave={() => navigate(`/recipes/${id}`)}
       user={user}
     />
   );
@@ -173,16 +196,20 @@ const CookRecipeRoute = ({ recipes }: any) => {
   return (
     <CookingMode 
       recipe={recipe}
-      onClose={() => navigate(`/recipe/${id}`)}
+      onClose={() => navigate(`/recipes/${id}`)}
     />
   );
 };
+
+import { RecipeProvider } from './contexts/RecipeContext';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <AppContent />
+        <RecipeProvider>
+          <AppContent />
+        </RecipeProvider>
       </Router>
     </ErrorBoundary>
   );

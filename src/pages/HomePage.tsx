@@ -44,7 +44,7 @@ export const HomePage = () => {
               <RecipeCard 
                 key={recipe.id} 
                 recipe={recipe} 
-                onClick={() => navigate(`/recipe/${recipe.id}`)} 
+                onClick={() => navigate(`/recipes/${recipe.id}`)} 
               />
             ))}
           </div>

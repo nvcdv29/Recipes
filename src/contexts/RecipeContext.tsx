@@ -11,8 +11,8 @@ import { db } from '../firebase';
 import { Recipe, OperationType } from '../types';
 import { handleFirestoreError } from '../services/firestore';
 import { useAuth } from './AuthContext';
-import { useUIStore } from '../store/uiStore';
 import FlexSearch from 'flexsearch';
+import { useSearchParams } from 'react-router-dom';
 
 interface RecipeContextType {
   recipes: Recipe[];
@@ -27,14 +27,14 @@ const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
 
 export const RecipeProvider = ({ children }: { children: ReactNode }) => {
   const { user, isWhitelisted } = useAuth();
-  const { 
-    searchQuery, 
-    filterCategory, 
-    filterDietary, 
-    filterDifficulty, 
-    filterDuration, 
-    filterServings 
-  } = useUIStore();
+  const [searchParams] = useSearchParams();
+  
+  const searchQuery = searchParams.get('q') || '';
+  const filterCategory = searchParams.get('category') || 'Alle';
+  const filterDietary = searchParams.get('dietary') || 'Alle';
+  const filterDifficulty = searchParams.get('difficulty') || 'Alle';
+  const filterDuration = searchParams.get('duration') || '';
+  const filterServings = searchParams.get('servings') || '';
   
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,3 +116,4 @@ export const useRecipes = () => {
   }
   return context;
 };
+

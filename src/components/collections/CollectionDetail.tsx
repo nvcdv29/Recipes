@@ -190,7 +190,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
                         className={`bg-white border rounded-2xl flex overflow-hidden transition-all group cursor-pointer
                           ${snapshot.isDragging ? 'shadow-xl border-primary scale-[1.02]' : 'border-outline-variant/20 hover:shadow-md hover:border-primary/30'}
                         `}
-                        onClick={() => navigate(`/recipe/${recipe.id}`)}
+                        onClick={() => navigate(`/recipes/${recipe.id}`)}
                       >
                         {isOwner && searchQuery.length === 0 && (
                           <div 
