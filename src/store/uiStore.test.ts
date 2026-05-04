@@ -35,4 +35,20 @@ describe('UI Store (Zustand)', () => {
     setViewMode('list');
     expect(useUIStore.getState().viewMode).toBe('list');
   });
+
+  it('should update remaining filters', () => {
+    const { setFilterDietary, setFilterDifficulty, setFilterDuration, setFilterServings, setShowPublicOnly } = useUIStore.getState();
+    setFilterDietary('Vegan');
+    setFilterDifficulty('Leicht');
+    setFilterDuration('30 Min');
+    setFilterServings('2');
+    setShowPublicOnly(true);
+
+    const state = useUIStore.getState();
+    expect(state.filterDietary).toBe('Vegan');
+    expect(state.filterDifficulty).toBe('Leicht');
+    expect(state.filterDuration).toBe('30 Min');
+    expect(state.filterServings).toBe('2');
+    expect(state.showPublicOnly).toBe(true);
+  });
 });
