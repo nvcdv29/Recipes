@@ -1,19 +1,51 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif:wght@400;700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Noto Serif", serif;
   
-  --color-primary: #2042b6;
-  --color-primary-container: #3e5ccf;
-  --color-surface: #f9f9f9;
-  --color-surface-container-low: #f3f3f3;
-  --color-surface-container-high: #eeeeee;
-  --color-surface-container-highest: #e0e0e0;
-  --color-on-surface: #1a1c1c;
-  --color-on-surface-variant: #444747;
-  --color-outline-variant: #c4c7c7;
+  --color-primary: var(--primary);
+  --color-primary-container: var(--primary-container);
+  --color-surface: var(--surface);
+  --color-surface-container-low: var(--surface-low);
+  --color-surface-container-high: var(--surface-high);
+  --color-surface-container-highest: var(--surface-highest);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline-variant: var(--outline-variant);
+}
+
+:root {
+  --primary: #2042b6;
+  --primary-container: #3e5ccf;
+  
+  --surface: #f9f9f9;
+  --surface-low: #f3f3f3;
+  --surface-high: #eeeeee;
+  --surface-highest: #e0e0e0;
+  
+  --on-surface: #1a1c1c;
+  --on-surface-variant: #444747;
+  --outline-variant: #c4c7c7;
+}
+
+:root.dark {
+  --primary: #8aadeb;
+  --primary-container: #5c83d6;
+  
+  /* Dark mode backgrounds */
+  --surface: #121212;
+  --surface-low: #1e1e1e;
+  --surface-high: #2c2c2c;
+  --surface-highest: #3a3a3a;
+  
+  /* Dark mode text */
+  --on-surface: #e3e3e3;
+  --on-surface-variant: #c4c7c7;
+  --outline-variant: #444747;
 }
 
 @layer base {

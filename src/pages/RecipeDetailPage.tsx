@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useRecipes } from '../contexts/RecipeContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useRecipeStore as useRecipes } from '../stores/recipeStore';
+import { useAuthStore as useAuth } from '../stores/authStore';
 import { useRecipeActions } from '../hooks/useRecipeActions';
 import { RecipeDetail } from '../components/recipes/RecipeDetail';
 import { ConfirmModal } from '../components/ui/ConfirmModal';

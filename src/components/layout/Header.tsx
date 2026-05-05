@@ -1,7 +1,8 @@
-import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart, Bookmark, Calendar } from 'lucide-react';
+import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart, Bookmark, Calendar, Sun, Moon, Laptop } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 import { useLocation } from 'react-router-dom';
+import { useThemeStore } from '../../stores/themeStore';
 
 interface HeaderProps {
   view: string;
@@ -25,6 +26,20 @@ export const Header = ({
                   user?.email === 'noah@leitschuh.de';
   const location = useLocation();
 
+  const { theme, setTheme } = useThemeStore();
+
+  const cycleTheme = () => {
+    if (theme === 'system') setTheme('light');
+    else if (theme === 'light') setTheme('dark');
+    else setTheme('system');
+  };
+
+  const renderThemeIcon = () => {
+    if (theme === 'light') return <Sun size={20} />;
+    if (theme === 'dark') return <Moon size={20} />;
+    return <Laptop size={20} />;
+  };
+
   return (
     <nav className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10 print:hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
@@ -39,6 +54,14 @@ export const Header = ({
         </div>
 
         <div className="flex items-center gap-4">
+          <button 
+            onClick={cycleTheme}
+            className="p-2 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant flex items-center justify-center"
+            title={`Thema: ${theme}`}
+          >
+            {renderThemeIcon()}
+          </button>
+          
           <button 
             onClick={() => setView('shopping-lists')}
             className={cn(

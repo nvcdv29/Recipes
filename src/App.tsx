@@ -3,8 +3,8 @@ import { useParams, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import { useRecipes } from './contexts/RecipeContext';
+import { useAuthStore as useAuth } from './stores/authStore';
+import { useRecipeStore as useRecipes } from './stores/recipeStore';
 import { useAuthActions } from './hooks/useAuthActions';
 import { useRecipeActions } from './hooks/useRecipeActions';
 
@@ -201,15 +201,11 @@ const CookRecipeRoute = ({ recipes }: any) => {
   );
 };
 
-import { RecipeProvider } from './contexts/RecipeContext';
-
 export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <RecipeProvider>
-          <AppContent />
-        </RecipeProvider>
+        <AppContent />
       </Router>
     </ErrorBoundary>
   );

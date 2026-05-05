@@ -57,7 +57,7 @@ export const CookingMode = ({ recipe, onClose }: CookingModeProps) => {
       style={{ isolation: 'isolate' }}
     >
       {/* Top Bar */}
-      <div className="flex items-center justify-between p-4 bg-white border-b border-outline-variant/10 shadow-sm z-10 shrink-0">
+      <div className="flex items-center justify-between p-4 bg-white dark:bg-surface-container-low border-b border-outline-variant/10 shadow-sm z-10 shrink-0">
         <h2 className="text-xl font-serif font-bold text-on-surface line-clamp-1 flex-1">
           {recipe.title}
         </h2>
@@ -78,7 +78,7 @@ export const CookingMode = ({ recipe, onClose }: CookingModeProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute right-0 top-full mt-2 w-64 max-h-80 overflow-y-auto bg-white rounded-2xl shadow-xl border border-outline-variant/10 py-2 z-50"
+                className="absolute right-0 top-full mt-2 w-64 max-h-80 overflow-y-auto bg-white dark:bg-surface-container-low rounded-2xl shadow-xl border border-outline-variant/10 py-2 z-50"
               >
                 {recipe.instructions.map((step, idx) => (
                   <button
@@ -171,7 +171,7 @@ export const CookingMode = ({ recipe, onClose }: CookingModeProps) => {
 
         {/* Instruction Panel */}
         <div 
-          className="flex-1 bg-white p-6 md:p-16 flex flex-col relative overflow-y-auto"
+          className="flex-1 bg-white dark:bg-surface-container-low p-6 md:p-16 flex flex-col relative overflow-y-auto"
           ref={scrollContainerRef}
         >
           <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col justify-center min-h-[50vh]">
@@ -262,7 +262,7 @@ export const CookingMode = ({ recipe, onClose }: CookingModeProps) => {
           </div>
 
           {/* Navigation Controls */}
-          <div className="shrink-0 max-w-3xl w-full mx-auto flex items-center flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between mt-auto pt-6 border-t border-outline-variant/10 bg-white">
+          <div className="shrink-0 max-w-3xl w-full mx-auto flex items-center flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between mt-auto pt-6 border-t border-outline-variant/10 bg-white dark:bg-surface-container-low">
             <button 
               onClick={actions.prevStep}
               disabled={currentStep === 0}

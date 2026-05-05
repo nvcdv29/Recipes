@@ -1,6 +1,7 @@
 import { Search, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useSearchParams } from 'react-router-dom';
+import { useFilterStore } from '../../stores/filterStore';
+import { useRecipeStore } from '../../stores/recipeStore';
 
 interface RecipeFiltersProps {
   categories: string[];
@@ -11,21 +12,20 @@ export const RecipeFilters = ({
   categories,
   dietaryOptions
 }: RecipeFiltersProps) => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = useFilterStore(state => state.searchQuery);
+  const filterCategory = useFilterStore(state => state.filterCategory);
+  const filterDietary = useFilterStore(state => state.filterDietary);
+  const filterDifficulty = useFilterStore(state => state.filterDifficulty);
+  const setSearchQuery = useFilterStore(state => state.setSearchQuery);
+  const setFilterCategory = useFilterStore(state => state.setFilterCategory);
+  const setFilterDietary = useFilterStore(state => state.setFilterDietary);
+  const setFilterDifficulty = useFilterStore(state => state.setFilterDifficulty);
 
-  const searchQuery = searchParams.get('q') || '';
-  const filterCategory = searchParams.get('category') || 'Alle';
-  const filterDietary = searchParams.get('dietary') || 'Alle';
-  const filterDifficulty = searchParams.get('difficulty') || 'Alle';
+  const performSearch = useRecipeStore(state => state.performSearch);
 
-  const updateParam = (key: string, value: string) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (!value || value === 'Alle') {
-      newParams.delete(key);
-    } else {
-      newParams.set(key, value);
-    }
-    setSearchParams(newParams, { replace: true });
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    performSearch(val);
   };
 
   return (
@@ -37,12 +37,12 @@ export const RecipeFilters = ({
             type="text" 
             placeholder="Rezepte oder Zutaten suchen..."
             value={searchQuery}
-            onChange={(e) => updateParam('q', e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-surface-container-low rounded-2xl border-none focus:ring-2 focus:ring-primary/20 transition-all outline-none"
           />
           {searchQuery && (
             <button 
-              onClick={() => updateParam('q', '')}
+              onClick={() => handleSearchChange('')}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface-variant"
             >
               <X size={16} />
@@ -53,7 +53,7 @@ export const RecipeFilters = ({
           {categories.map(cat => (
             <button
               key={cat}
-              onClick={() => updateParam('category', cat)}
+              onClick={() => setFilterCategory(cat)}
               className={cn(
                 "px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                 filterCategory === cat 
@@ -70,7 +70,7 @@ export const RecipeFilters = ({
       <div className="flex flex-wrap gap-4">
         <select
           value={filterDifficulty}
-          onChange={(e) => updateParam('difficulty', e.target.value)}
+          onChange={(e) => setFilterDifficulty(e.target.value)}
           className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
         >
           <option value="Alle">Alle Schwierigkeiten</option>
@@ -80,7 +80,7 @@ export const RecipeFilters = ({
         </select>
         <select
           value={filterDietary}
-          onChange={(e) => updateParam('dietary', e.target.value)}
+          onChange={(e) => setFilterDietary(e.target.value)}
           className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
         >
           {dietaryOptions.map(opt => (

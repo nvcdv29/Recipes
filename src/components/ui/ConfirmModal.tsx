@@ -17,7 +17,7 @@ export const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }: Con
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-outline-variant/10"
+          className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-outline-variant/10"
         >
           <h3 className="text-2xl font-serif font-bold mb-4">{title}</h3>
           <p className="text-on-surface-variant mb-8 leading-relaxed">{message}</p>

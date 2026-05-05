@@ -58,7 +58,7 @@ export const ShoppingListsPage = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-white border border-outline-variant/20 rounded-2xl p-5 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col"
+                  className="bg-white dark:bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group flex flex-col"
                   onClick={() => setSelectedList(list)}
                 >
                   <div className="flex items-start justify-between mb-3">

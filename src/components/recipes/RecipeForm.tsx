@@ -16,7 +16,7 @@ import { Recipe, Difficulty, OperationType } from '../../types';
 import { handleFirestoreError } from '../../services/firestore';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
-import { useRecipes } from '../../contexts/RecipeContext';
+import { useRecipeStore as useRecipes } from '../../stores/recipeStore';
 import { detectDuplicates } from '../../services/duplicateDetection';
 import { DuplicateDetector } from './DuplicateDetector';
 
@@ -160,6 +160,12 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
   const executeSave = async (data: any, existingId?: string) => {
     setIsSaving(true);
     try {
+      const { generateRecipeEmbedding } = await import('../../services/embeddings');
+      const embedding = await generateRecipeEmbedding(data);
+      if (embedding) {
+        data.embedding = embedding;
+      }
+
       if (existingId) {
         // Calculate differences for versioning
         const { diff } = await import('deep-object-diff');
@@ -287,7 +293,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="max-w-4xl mx-auto bg-white rounded-[3rem] p-10 lg:p-16 shadow-2xl border border-outline-variant/10"
+      className="max-w-4xl mx-auto bg-white dark:bg-surface-container-low rounded-[3rem] p-10 lg:p-16 shadow-2xl border border-outline-variant/10"
     >
       <div className="flex items-center justify-between mb-12">
         <h2 className="text-4xl font-serif font-bold text-primary">
@@ -376,7 +382,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
             <div className="flex flex-wrap gap-4">
               {formData.images?.map((img, i) => (
                 <div key={i} className="relative w-32 h-32 rounded-2xl overflow-hidden group border border-outline-variant/10">
-                  <img src={img} alt={`Bild ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={img} alt={`Bild ${i + 1}`} className="dark:brightness-90 transition-all w-full h-full object-cover" />
                   <button 
                     type="button"
                     onClick={() => removeImage(i)}

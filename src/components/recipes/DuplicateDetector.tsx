@@ -22,7 +22,7 @@ export const DuplicateDetector = ({ duplicates, onMerge, onSaveAsVariant, onSave
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        className="bg-white dark:bg-surface-container-low rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-[#FFF8E1] p-6 border-b border-[#FFE082] flex items-start gap-4">
@@ -49,7 +49,7 @@ export const DuplicateDetector = ({ duplicates, onMerge, onSaveAsVariant, onSave
                       : 'border-outline-variant/30 hover:border-primary/50'
                     }`}
                 >
-                  <img src={d.recipe.images?.[0] || `https://picsum.photos/seed/${d.recipe.title}/100/100`} className="w-16 h-16 rounded-xl object-cover shrink-0" alt="" />
+                  <img src={d.recipe.images?.[0] || `https://picsum.photos/seed/${d.recipe.title}/100/100`} className="dark:brightness-90 transition-all w-16 h-16 rounded-xl object-cover shrink-0" alt="" />
                   <div className="flex-1">
                     <h4 className="font-bold text-on-surface line-clamp-1">{d.recipe.title}</h4>
                     <p className="text-sm text-on-surface-variant flex items-center gap-2">

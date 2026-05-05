@@ -77,29 +77,29 @@ export function ActivityFeed() {
 
   if (activities.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500">
+      <div className="bg-white dark:bg-surface-container-low p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/10 text-center text-gray-500">
         Noch keine Aktivitäten vorhanden.
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-4 border-b border-gray-100 bg-gray-50">
-        <h3 className="font-semibold text-gray-800">Familien-Aktivitäten</h3>
+    <div className="bg-white dark:bg-surface-container-low rounded-xl shadow-sm border border-gray-100 dark:border-white/10 overflow-hidden">
+      <div className="p-4 border-b border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-surface-container-high">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200">Familien-Aktivitäten</h3>
       </div>
       <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
         {activities.map(activity => (
-          <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors flex gap-3 items-start">
+          <div key={activity.id} className="p-4 hover:bg-gray-50 dark:bg-surface-container-high transition-colors flex gap-3 items-start">
             <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">
               {users[activity.userId]?.photoURL ? (
-                <img src={users[activity.userId].photoURL} alt="" className="w-full h-full rounded-full" />
+                <img src={users[activity.userId].photoURL} alt="" className="dark:brightness-90 transition-all w-full h-full rounded-full" />
               ) : (
                 <span className="font-bold text-sm">{(users[activity.userId]?.displayName || '?')[0]}</span>
               )}
             </div>
             <div className="flex-1">
-              <p className="text-gray-800 text-sm">{renderActivityText(activity)}</p>
+              <p className="text-gray-800 dark:text-gray-200 text-sm">{renderActivityText(activity)}</p>
               <p className="text-xs text-gray-400 mt-1">
                 {new Date(activity.createdAt).toLocaleString(undefined, {
                   day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'

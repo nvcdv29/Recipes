@@ -68,7 +68,7 @@ export const LoginScreen = ({
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white p-12 rounded-[2.5rem] shadow-2xl border border-red-100"
+          className="max-w-md w-full bg-white dark:bg-surface-container-low p-12 rounded-[2.5rem] shadow-2xl border border-red-100"
         >
           <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center text-red-500 mx-auto mb-8">
             <ShieldAlert size={40} />
@@ -89,7 +89,7 @@ export const LoginScreen = ({
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white p-12 rounded-[2.5rem] shadow-2xl shadow-primary/5 border border-outline-variant/10"
+        className="max-w-md w-full bg-white dark:bg-surface-container-low p-12 rounded-[2.5rem] shadow-2xl shadow-primary/5 border border-outline-variant/10"
       >
         <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-8">
           <ChefHat size={40} />

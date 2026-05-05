@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { RecipeCollection, Recipe } from '../../types';
-import { useRecipes } from '../../contexts/RecipeContext';
+import { useRecipeStore as useRecipes } from '../../stores/recipeStore';
 import { useCollections } from '../../hooks/useCollections';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { Button } from '../ui/Button';
 import { ChevronLeft, Info, Settings, Trash2, Users, Search, GripVertical } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -106,7 +106,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
               type="text" 
               value={name} 
               onChange={e => setName(e.target.value)} 
-              className="w-full bg-white border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full bg-white dark:bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           <div>
@@ -114,7 +114,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
             <textarea 
               value={description} 
               onChange={e => setDescription(e.target.value)} 
-              className="w-full bg-white border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[100px]"
+              className="w-full bg-white dark:bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[100px]"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -141,7 +141,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
       )}
 
       {collection.description && !isEditing && (
-        <p className="text-on-surface-variant text-lg mb-8 bg-white/50 p-6 rounded-2xl border border-outline-variant/10">
+        <p className="text-on-surface-variant text-lg mb-8 bg-white dark:bg-surface-container-low/50 p-6 rounded-2xl border border-outline-variant/10">
           {collection.description}
         </p>
       )}
@@ -154,7 +154,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
             placeholder="Suchen..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant/20 rounded-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-surface-container-low border border-outline-variant/20 rounded-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
           />
         </div>
         <div className="text-sm text-on-surface-variant">
@@ -187,7 +187,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`bg-white border rounded-2xl flex overflow-hidden transition-all group cursor-pointer
+                        className={`bg-white dark:bg-surface-container-low border rounded-2xl flex overflow-hidden transition-all group cursor-pointer
                           ${snapshot.isDragging ? 'shadow-xl border-primary scale-[1.02]' : 'border-outline-variant/20 hover:shadow-md hover:border-primary/30'}
                         `}
                         onClick={() => navigate(`/recipes/${recipe.id}`)}
@@ -205,7 +205,7 @@ export const CollectionDetail = ({ collection, onBack }: CollectionDetailProps) 
                         <div className="w-24 sm:w-32 h-24 sm:h-32 shrink-0">
                           <img 
                             src={recipe.images[0] || `https://picsum.photos/seed/${recipe.title}/200/200`}
-                            className="w-full h-full object-cover"
+                            className="dark:brightness-90 transition-all w-full h-full object-cover"
                             alt={recipe.title}
                           />
                         </div>

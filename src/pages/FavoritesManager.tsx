@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useRecipes } from '../contexts/RecipeContext';
+import { useAuthStore as useAuth } from '../stores/authStore';
+import { useRecipeStore as useRecipes } from '../stores/recipeStore';
 import { useCollections } from '../hooks/useCollections';
 import { RecipeCard } from '../components/recipes/RecipeCard';
 import { CollectionCard } from '../components/collections/CollectionCard';

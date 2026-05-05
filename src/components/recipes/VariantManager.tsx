@@ -72,7 +72,7 @@ export const VariantManager = ({ recipe, currentUser, onVariantSelected }: Varia
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl"
+              className="bg-white dark:bg-surface-container-low rounded-[2rem] p-8 max-w-lg w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-serif font-bold text-primary flex items-center gap-2">
@@ -116,7 +116,7 @@ export const VariantManager = ({ recipe, currentUser, onVariantSelected }: Varia
                         value={variantName}
                         onChange={e => setVariantName(e.target.value)}
                         placeholder="z.B. Vegan, Glutenfrei..."
-                        className="w-full px-4 py-2 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
+                        className="w-full px-4 py-2 bg-white dark:bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
                       />
                       <div className="flex gap-2">
                         <Button onClick={handleFork} className="flex-1">Speichern</Button>

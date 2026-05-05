@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { Loader2 } from 'lucide-react';
 
 export const PrivateRoute = ({ children }: { children: React.ReactNode }) => {

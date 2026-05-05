@@ -13,7 +13,7 @@ import {
 import { db } from '../firebase';
 import { ShoppingList, OperationType } from '../types';
 import { handleFirestoreError } from '../services/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../stores/authStore';
 import { toast } from 'sonner';
 
 export function useShoppingList() {

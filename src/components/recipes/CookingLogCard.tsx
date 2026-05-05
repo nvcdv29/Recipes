@@ -37,7 +37,7 @@ export function CookingLogCard({ recipeId }: CookingLogCardProps) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-gray-50 p-4 rounded-lg mb-6 shadow-inner">
+        <form onSubmit={handleSubmit} className="bg-gray-50 dark:bg-surface-container-high p-4 rounded-lg mb-6 shadow-inner">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Notizen / Anpassungen</label>
             <textarea
@@ -64,7 +64,7 @@ export function CookingLogCard({ recipeId }: CookingLogCardProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {cookingLogs.map(log => (
-          <div key={log.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col">
+          <div key={log.id} className="bg-white dark:bg-surface-container-low p-4 rounded-lg shadow-sm border border-gray-100 dark:border-white/10 flex flex-col">
             <span className="text-xs text-gray-500 mb-2">
               Am {new Date(log.cookedDate).toLocaleDateString()}
             </span>
@@ -76,7 +76,7 @@ export function CookingLogCard({ recipeId }: CookingLogCardProps) {
                     key={i} 
                     src={photo} 
                     alt="Cooked dish" 
-                    className="w-20 h-20 object-cover rounded-md flex-shrink-0" 
+                    className="dark:brightness-90 transition-all w-20 h-20 object-cover rounded-md flex-shrink-0" 
                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Bild+Fehler'; }}
                   />
                 ))}
@@ -85,7 +85,7 @@ export function CookingLogCard({ recipeId }: CookingLogCardProps) {
           </div>
         ))}
         {cookingLogs.length === 0 && !showForm && (
-          <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+          <div className="col-span-full py-8 text-center text-gray-500 bg-gray-50 dark:bg-surface-container-high rounded-lg border border-dashed border-gray-200 dark:border-white/10">
             Noch keine Koch-Logs. Sei der Erste!
           </div>
         )}

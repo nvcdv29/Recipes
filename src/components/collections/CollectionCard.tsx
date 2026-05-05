@@ -1,6 +1,6 @@
 import { RecipeCollection } from '../../types';
 import { motion } from 'motion/react';
-import { useRecipes } from '../../contexts/RecipeContext';
+import { useRecipeStore as useRecipes } from '../../stores/recipeStore';
 
 interface CollectionCardProps {
   collection: RecipeCollection;
@@ -25,7 +25,7 @@ export const CollectionCard = ({ collection, onClick }: CollectionCardProps) => 
       layout
       whileHover={{ y: -4 }}
       onClick={onClick}
-      className="bg-white border border-outline-variant/20 rounded-3xl p-5 cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all flex flex-col h-full"
+      className="bg-white dark:bg-surface-container-low border border-outline-variant/20 rounded-3xl p-5 cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all flex flex-col h-full"
     >
       <div className="flex items-center gap-3 mb-4">
         <div 
@@ -51,7 +51,7 @@ export const CollectionCard = ({ collection, onClick }: CollectionCardProps) => 
                 key={i} 
                 className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-surface"
               >
-                <img src={img} alt="" className="w-full h-full object-cover" />
+                <img src={img} alt="" className="dark:brightness-90 transition-all w-full h-full object-cover" />
               </div>
             ))
           ) : (

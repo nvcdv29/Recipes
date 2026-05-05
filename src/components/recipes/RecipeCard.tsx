@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Star, BookOpen, Clock, Users, Heart } from 'lucide-react';
 import { Recipe } from '../../types';
 import { RatingStars } from './RatingStars';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { cn } from '../../lib/utils';
 
 interface RecipeCardProps {
@@ -26,20 +26,20 @@ export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => {
     layout
     whileHover={{ y: -8 }}
     onClick={onClick}
-    className="bg-white rounded-[2rem] overflow-hidden cursor-pointer group border border-outline-variant/5 hover:shadow-2xl hover:shadow-primary/5 transition-all relative"
+    className="bg-white dark:bg-surface-container-low rounded-[2rem] overflow-hidden cursor-pointer group border border-outline-variant/5 hover:shadow-2xl hover:shadow-primary/5 transition-all relative"
   >
     <div className="aspect-[4/3] relative overflow-hidden">
       <img 
         src={recipe.images[0] || `https://picsum.photos/seed/${recipe.title}/800/600`} 
         alt={recipe.title}
-        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+        className="dark:brightness-90 transition-all w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="absolute top-4 left-4 z-10">
         <button 
           onClick={handleFavoriteClick}
-          className="p-2 bg-white/50 hover:bg-white/90 backdrop-blur-md rounded-full shadow-sm transition-all"
+          className="p-2 bg-white dark:bg-surface-container-low/50 hover:bg-white dark:bg-surface-container-low/90 backdrop-blur-md rounded-full shadow-sm transition-all"
         >
           <Heart 
             size={18} 
@@ -50,13 +50,13 @@ export const RecipeCard = ({ recipe, onClick }: RecipeCardProps) => {
       <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-10">
         <div className="flex flex-wrap justify-end gap-2">
           {recipe.dietary?.slice(0, 2).map(d => (
-            <span key={d} className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
+            <span key={d} className="px-3 py-1 bg-white dark:bg-surface-container-low/90 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
               {d}
             </span>
           ))}
         </div>
         {recipe.averageRating && (
-          <div className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-sm">
+          <div className="px-3 py-1 bg-white dark:bg-surface-container-low/90 backdrop-blur-md rounded-full flex items-center gap-1.5 shadow-sm">
             <Star size={12} className="fill-amber-400 text-amber-400" />
             <span className="text-[10px] font-bold text-primary">{recipe.averageRating.toFixed(1)}</span>
           </div>

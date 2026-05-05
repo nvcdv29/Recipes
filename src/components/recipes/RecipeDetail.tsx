@@ -23,7 +23,8 @@ import {
   User as UserIcon,
   Play,
   BookmarkPlus,
-  Heart
+  Heart,
+  Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -34,7 +35,7 @@ import { Recipe, Rating, OperationType } from '../../types';
 import { handleFirestoreError } from '../../services/firestore';
 import { RatingStars } from './RatingStars';
 import { Button } from '../ui/Button';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { CollectionSelectorModal } from '../collections/CollectionSelectorModal';
 import { VersionHistory } from './VersionHistory';
 import { VariantManager } from './VariantManager';
@@ -42,6 +43,8 @@ import { cn } from '../../lib/utils';
 import { CommentSection } from './CommentSection';
 import { CookingLogCard } from './CookingLogCard';
 import { useSocialFeatures } from '../../hooks/useSocialFeatures';
+import { RecipeScaler } from './RecipeScaler';
+import { ParsedIngredient, parseIngredients, adjustCookingTips } from '../../services/recipeScaling';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -61,9 +64,54 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
   const [pdfIncludeRating, setPdfIncludeRating] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   
+  const [showSmartScale, setShowSmartScale] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedRecipeIngredients, setParsedRecipeIngredients] = useState<ParsedIngredient[]>([]);
+  const [scaledServings, setScaledServings] = useState(initialRecipe.servings);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  const [isAdjustingTips, setIsAdjustingTips] = useState(false);
+  const [adjustedDuration, setAdjustedDuration] = useState("");
+  const [scalingTips, setScalingTips] = useState<string[]>([]);
+
   const { reactions, toggleReaction } = useSocialFeatures(recipe.id);
 
   const isFavorite = userProfile?.favorites?.includes(recipe.id || '') || false;
+
+  const handleSmartScale = async () => {
+    if (parsedRecipeIngredients.length > 0) {
+      setShowSmartScale(true);
+      return;
+    }
+    setIsParsing(true);
+    try {
+      const parsed = await parseIngredients(recipe.ingredients);
+      setParsedRecipeIngredients(parsed);
+      setShowSmartScale(true);
+    } catch (e: any) {
+      toast.error(e.message || "Fehler beim Laden der Zutaten");
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleAdjustTips = async () => {
+    setIsAdjustingTips(true);
+    try {
+      const { newDuration, tips } = await adjustCookingTips(
+        recipe.servings, 
+        scaledServings, 
+        recipe.title, 
+        recipe.instructions
+      );
+      setAdjustedDuration(newDuration);
+      setScalingTips(tips);
+      setTipsOpen(true);
+    } catch (e: any) {
+      toast.error(e.message || "Fehler");
+    } finally {
+      setIsAdjustingTips(false);
+    }
+  };
 
   useEffect(() => {
     setRecipe(initialRecipe); // Update if parent changes
@@ -285,7 +333,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
           </button>
 
           {showPdfOptions && (
-            <div className="absolute top-14 right-12 w-64 bg-white rounded-2xl shadow-xl border border-outline-variant/10 p-4 z-50">
+            <div className="absolute top-14 right-12 w-64 bg-white dark:bg-surface-container-low rounded-2xl shadow-xl border border-outline-variant/10 p-4 z-50">
               <h4 className="font-bold mb-4">PDF Export</h4>
               <label className="flex items-center gap-3 mb-3 cursor-pointer">
                 <input 
@@ -331,19 +379,19 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
         </div>
       </div>
 
-      <div id="recipe-content" className="bg-white rounded-[3rem] overflow-hidden shadow-xl border border-outline-variant/5 print:shadow-none print:border-none print:rounded-none">
+      <div id="recipe-content" className="bg-white dark:bg-surface-container-low rounded-[3rem] overflow-hidden shadow-xl border border-outline-variant/5 print:shadow-none print:border-none print:rounded-none">
         <div className="aspect-[21/9] w-full relative">
           <img 
             src={recipe.images[0] || `https://picsum.photos/seed/${recipe.title}/1200/600`} 
             alt={recipe.title}
-            className="w-full h-full object-cover"
+            className="dark:brightness-90 transition-all w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-10 left-10 right-10">
             <div className="flex flex-wrap gap-2 mb-4">
               {recipe.categories.map(c => (
-                <span key={c} className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-widest border border-white/20">
+                <span key={c} className="px-4 py-1.5 bg-white dark:bg-surface-container-low/20 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-widest border border-white/20">
                   {c}
                 </span>
               ))}
@@ -415,24 +463,67 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
               <h2 className="text-2xl font-serif font-bold mb-8 flex items-center gap-3">
                 Zutaten
                 <div className="h-px flex-1 bg-outline-variant/20" />
+                {!showSmartScale && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSmartScale} 
+                    disabled={isParsing}
+                  >
+                    {isParsing ? <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" /> : "Portionen & Ersatz"}
+                  </Button>
+                )}
               </h2>
-              <ul className="space-y-4">
-                {recipe.ingredients.map((ing: string, i: number) => (
-                  <li key={i} className="flex items-start gap-3 group cursor-pointer">
-                    <div className="mt-1.5 w-4 h-4 rounded-full border-2 border-primary/20 group-hover:border-primary transition-colors flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <span className="text-on-surface-variant leading-relaxed">{ing}</span>
-                  </li>
-                ))}
-              </ul>
+              {showSmartScale && parsedRecipeIngredients.length > 0 ? (
+                <RecipeScaler 
+                  originalServings={recipe.servings}
+                  originalIngredients={recipe.ingredients}
+                  parsedIngredients={parsedRecipeIngredients}
+                  onScaleChange={setScaledServings}
+                />
+              ) : (
+                <ul className="space-y-4">
+                  {recipe.ingredients.map((ing: string, i: number) => (
+                    <li key={i} className="flex items-start gap-3 group cursor-pointer">
+                      <div className="mt-1.5 w-4 h-4 rounded-full border-2 border-primary/20 group-hover:border-primary transition-colors flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <span className="text-on-surface-variant leading-relaxed">{ing}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="lg:col-span-8">
-              <h2 className="text-2xl font-serif font-bold mb-8 flex items-center gap-3">
-                Zubereitung
-                <div className="h-px flex-1 bg-outline-variant/20" />
-              </h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-serif font-bold flex items-center gap-3 w-full">
+                  Zubereitung
+                  <div className="h-px flex-1 bg-outline-variant/20" />
+                </h2>
+                {scaledServings !== recipe.servings && !tipsOpen && (
+                  <Button variant="outline" size="sm" onClick={handleAdjustTips} disabled={isAdjustingTips} className="shrink-0 ml-4">
+                    {isAdjustingTips ? <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" /> : "Zubereitung anpassen?"}
+                  </Button>
+                )}
+              </div>
+              
+              {tipsOpen && (
+                <div className="mb-8 p-6 bg-amber-50 rounded-2xl border border-amber-200">
+                  <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                    <Info size={18} /> Anpassungen für {scaledServings} Portionen
+                  </h4>
+                  {adjustedDuration && (
+                    <p className="text-amber-800 mb-2"><strong>Neue Dauer:</strong> {adjustedDuration}</p>
+                  )}
+                  <ul className="space-y-1 list-disc list-inside text-amber-800 text-sm">
+                    {scalingTips.map((tip, i) => (
+                      <li key={i}>{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="space-y-10">
                 {recipe.instructions.map((step: string, i: number) => (
                   <div key={i} className="flex gap-6">
@@ -479,7 +570,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                       onClick={() => toggleReaction(emoji)}
                       className={cn(
                         "px-3 py-1.5 rounded-full text-lg shadow-sm border transition-all active:scale-95",
-                        hasReacted ? "bg-primary/20 border-primary shadow-inner" : "bg-white border-gray-200 hover:bg-gray-50"
+                        hasReacted ? "bg-primary/20 border-primary shadow-inner" : "bg-white border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:bg-surface-container-high"
                       )}
                     >
                       {emoji} {count > 0 && <span className="text-sm font-medium text-gray-700 ml-1">{count}</span>}
@@ -488,7 +579,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                 })}
               </div>
               
-              <hr className="my-12 border-gray-200" />
+              <hr className="my-12 border-gray-200 dark:border-white/10" />
               
               {recipe.id && <CookingLogCard recipeId={recipe.id} />}
               {recipe.id && <CommentSection recipeId={recipe.id} />}

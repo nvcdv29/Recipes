@@ -21,6 +21,7 @@ export interface Recipe {
   isPublic: boolean;
   averageRating?: number;
   ratingCount?: number;
+  embedding?: number[];
 }
 
 export interface Rating {

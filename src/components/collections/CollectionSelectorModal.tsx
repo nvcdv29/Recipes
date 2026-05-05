@@ -41,7 +41,7 @@ export const CollectionSelectorModal = ({ recipeId, onClose }: CollectionSelecto
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div 
-        className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden relative shadow-2xl flex flex-col max-h-[90vh]"
+        className="bg-white dark:bg-surface-container-low rounded-[2rem] w-full max-w-md overflow-hidden relative shadow-2xl flex flex-col max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between shrink-0">
@@ -109,7 +109,7 @@ export const CollectionSelectorModal = ({ recipeId, onClose }: CollectionSelecto
               value={newCollectionName}
               onChange={e => setNewCollectionName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              className="w-full bg-white border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
+              className="w-full bg-white dark:bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
             />
             <div className="flex gap-2">
               <Button variant="secondary" className="flex-1" onClick={() => setIsCreating(false)}>Abbrechen</Button>

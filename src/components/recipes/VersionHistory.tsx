@@ -101,7 +101,7 @@ export const VersionHistory = ({ recipe }: VersionHistoryProps) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl"
+              className="bg-white dark:bg-surface-container-low rounded-[2rem] p-8 max-w-lg w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-serif font-bold text-primary flex items-center gap-2">

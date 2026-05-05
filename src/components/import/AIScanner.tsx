@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
-import { processImagesSequentially, importRecipeFromUrl } from '../../services/geminiService';
+import { importRecipeFromUrl } from '../../services/geminiService';
+import { processImagesBatch } from '../../services/ParallelImportProcessor';
 import { Button } from '../ui/Button';
 import { BulkImportOverview } from './BulkImportOverview';
 
@@ -89,7 +90,7 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
         setPreview(base64Images[0].data);
       }
 
-      const recipes = await processImagesSequentially(base64Images, (current, total) => {
+      const recipes = await processImagesBatch(base64Images, (current, total) => {
         setScanProgress({ current, total });
       });
 
@@ -198,7 +199,7 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-outline-variant/10"
+              className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-outline-variant/10"
             >
               <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mx-auto mb-6">
                 <AlertTriangle size={32} />
@@ -221,7 +222,7 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
         )}
       </AnimatePresence>
 
-      <div className="bg-white rounded-[3rem] p-12 shadow-2xl border border-outline-variant/10">
+      <div className="bg-white dark:bg-surface-container-low rounded-[3rem] p-12 shadow-2xl border border-outline-variant/10">
         <div className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8">
           <Camera size={48} />
         </div>
@@ -234,14 +235,14 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
           <div className="space-y-6 py-8">
             {preview ? (
               <div className="relative w-48 h-48 mx-auto rounded-2xl overflow-hidden shadow-lg">
-                <img src={preview} className="w-full h-full object-cover blur-sm" referrerPolicy="no-referrer" />
+                <img src={preview} className="dark:brightness-90 transition-all w-full h-full object-cover blur-sm" referrerPolicy="no-referrer" />
                 <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
                   <Loader2 className="animate-spin text-white" size={48} />
                 </div>
                 <motion.div 
                   animate={{ top: ['0%', '100%', '0%'] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute left-0 right-0 h-1 bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-10"
+                  className="absolute left-0 right-0 h-1 bg-white dark:bg-surface-container-low shadow-[0_0_15px_rgba(255,255,255,0.8)] z-10"
                 />
               </div>
             ) : (
@@ -269,14 +270,14 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
                   value={sourceName}
                   onChange={(e) => setSourceName(e.target.value)}
                   placeholder="Name (z.B. Omas Kochbuch, Chefkoch)"
-                  className="w-full px-4 py-3 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
+                  className="w-full px-4 py-3 bg-white dark:bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
                 />
                 <input 
                   type="url"
                   value={sourceUrl}
                   onChange={(e) => setSourceUrl(e.target.value)}
                   placeholder="URL (z.B. https://chefkoch.de)"
-                  className="w-full px-4 py-3 bg-white rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
+                  className="w-full px-4 py-3 bg-white dark:bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all border border-outline-variant/10"
                 />
               </div>
             </div>
@@ -306,7 +307,7 @@ export const AIScanner = ({ onCancel, onScanComplete, initialUrl }: AIScannerPro
                 <div className="w-full border-t border-outline-variant/20"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-on-surface-variant/50 font-medium">ODER</span>
+                <span className="px-4 bg-white dark:bg-surface-container-low text-on-surface-variant/50 font-medium">ODER</span>
               </div>
             </div>
 

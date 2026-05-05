@@ -1,6 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { RecipeCard } from '../RecipeCard';
-import { AuthProvider } from '../../../contexts/AuthContext';
 import { vi, test, expect } from 'vitest';
 import { Recipe } from '../../../types';
 
@@ -50,9 +49,7 @@ const mockRecipe: Recipe = {
 
 test('displays recipe title', () => {
   render(
-    <AuthProvider>
-      <RecipeCard recipe={mockRecipe} onClick={() => {}} />
-    </AuthProvider>
+    <RecipeCard recipe={mockRecipe} onClick={() => {}} />
   );
   expect(screen.getByText('Apfelkuchen')).toBeInTheDocument();
   expect(screen.getByText('60 Min')).toBeInTheDocument();
@@ -68,22 +65,16 @@ test('handles favorite click and sourceUrl propagation', () => {
   };
   
   const { container } = render(
-    <AuthProvider>
-      <RecipeCard recipe={recipeWithSource} onClick={() => {}} />
-    </AuthProvider>
+    <RecipeCard recipe={recipeWithSource} onClick={() => {}} />
   );
 
   const favoriteBtn = container.querySelector('button');
   if (favoriteBtn) {
-    import('@testing-library/react').then(({ fireEvent }) => {
-      fireEvent.click(favoriteBtn);
-    });
+    fireEvent.click(favoriteBtn);
   }
 
   const link = container.querySelector('a');
   if (link) {
-    import('@testing-library/react').then(({ fireEvent }) => {
-      fireEvent.click(link);
-    });
+    fireEvent.click(link);
   }
 });

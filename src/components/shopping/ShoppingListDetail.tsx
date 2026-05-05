@@ -63,7 +63,7 @@ export const ShoppingListDetail = ({ list, onBack }: Props) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-outline-variant/10 space-y-8">
+      <div className="bg-white dark:bg-surface-container-low rounded-3xl p-6 md:p-8 shadow-sm border border-outline-variant/10 space-y-8">
         {Object.keys(grouped).length === 0 && (
           <p className="text-center text-on-surface-variant py-8">Diese Liste ist leer.</p>
         )}

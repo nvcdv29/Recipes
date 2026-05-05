@@ -3,7 +3,7 @@ import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp,
 import { db } from '../firebase';
 import { Comment, CookingLog, Activity, Reaction, Recommendation, OperationType } from '../types';
 import { handleFirestoreError } from '../services/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../stores/authStore';
 
 export function useSocialFeatures(recipeId?: string) {
   const { user } = useAuth();

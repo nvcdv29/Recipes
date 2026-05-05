@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useRecipes } from '../../contexts/RecipeContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useRecipeStore as useRecipes } from '../../stores/recipeStore';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { useShoppingList } from '../../hooks/useShoppingList';
 import { generateShoppingListItems } from '../../services/shoppingListService';
 import { Recipe } from '../../types';
@@ -11,7 +11,7 @@ import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 export const ShoppingListGenerator = ({ onClose }: { onClose: () => void }) => {
-  const { filteredRecipes } = useRecipes();
+  const { recipes } = useRecipes();
   const { user } = useAuth();
   const { createList } = useShoppingList();
   const navigate = useNavigate();
@@ -48,7 +48,7 @@ export const ShoppingListGenerator = ({ onClose }: { onClose: () => void }) => {
     // Build array of recipes with servings
     const toGenerate = selectedIds.map(id => {
       return {
-        recipe: filteredRecipes.find(r => r.id === id)!,
+        recipe: recipes.find(r => r.id === id)!,
         targetServings: selectedRecipes[id]
       };
     }).filter(x => x.recipe);
@@ -67,7 +67,7 @@ export const ShoppingListGenerator = ({ onClose }: { onClose: () => void }) => {
     onClose();
   };
 
-  const searchResults = filteredRecipes.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const searchResults = recipes.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -75,7 +75,7 @@ export const ShoppingListGenerator = ({ onClose }: { onClose: () => void }) => {
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+        className="bg-white dark:bg-surface-container-low rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
       >
         <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low shrink-0">
           <h2 className="text-2xl font-serif font-bold text-on-surface">Neue Einkaufsliste</h2>
@@ -140,7 +140,7 @@ export const ShoppingListGenerator = ({ onClose }: { onClose: () => void }) => {
                     </div>
                     
                     {isSelected && recipe.id && (
-                      <div className="flex items-center gap-3 bg-white border border-outline-variant/20 rounded-xl p-1 shrink-0">
+                      <div className="flex items-center gap-3 bg-white dark:bg-surface-container-low border border-outline-variant/20 rounded-xl p-1 shrink-0">
                         <button 
                           onClick={() => handleServingChange(recipe.id!, -1)}
                           className="w-8 h-8 flex items-center justify-center hover:bg-surface-container rounded-lg font-bold"

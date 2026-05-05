@@ -12,7 +12,7 @@ import {
 import { db } from '../firebase';
 import { RecipeCollection, OperationType } from '../types';
 import { handleFirestoreError } from '../services/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../stores/authStore';
 import { toast } from 'sonner';
 
 export const useCollections = () => {

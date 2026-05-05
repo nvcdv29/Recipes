@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocialFeatures } from '../../hooks/useSocialFeatures';
 import { Button } from '../ui/Button';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../../stores/authStore';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { UserProfile } from '../../types';
@@ -68,9 +68,9 @@ export function CommentSection({ recipeId }: CommentSectionProps) {
         {comments.map(comment => {
           const author = users.find(u => u.uid === comment.userId);
           return (
-            <div key={comment.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <div key={comment.id} className="bg-white dark:bg-surface-container-low p-4 rounded-lg shadow-sm border border-gray-100 dark:border-white/10">
               <div className="flex justify-between items-start mb-2">
-                <span className="font-medium text-gray-900">{author?.displayName || 'Benutzer'}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{author?.displayName || 'Benutzer'}</span>
                 <span className="text-sm text-gray-500">
                   {new Date(comment.createdAt).toLocaleDateString()}
                 </span>
@@ -99,7 +99,7 @@ export function CommentSection({ recipeId }: CommentSectionProps) {
         />
         
         {showMentionSuggestions && users.length > 0 && (
-          <div className="absolute bottom-full left-0 z-10 w-64 bg-white rounded-md shadow-lg border border-gray-200 mb-1 max-h-48 overflow-y-auto">
+          <div className="absolute bottom-full left-0 z-10 w-64 bg-white dark:bg-surface-container-low rounded-md shadow-lg border border-gray-200 dark:border-white/10 mb-1 max-h-48 overflow-y-auto">
             {users
               .filter(u => u.displayName?.toLowerCase().includes(mentionFilter.toLowerCase()))
               .map(u => (
@@ -107,7 +107,7 @@ export function CommentSection({ recipeId }: CommentSectionProps) {
                   key={u.uid}
                   type="button"
                   onClick={() => handleMentionSelect(u)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm focus:bg-gray-100"
+                  className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:bg-surface-container-high text-sm focus:bg-gray-100"
                 >
                   {u.displayName}
                 </button>

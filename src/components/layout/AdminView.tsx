@@ -143,7 +143,7 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Settings */}
-        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
+        <div className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
               <ShieldCheck size={24} />
@@ -182,7 +182,7 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
         </div>
 
         {/* Whitelist */}
-        <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
+        <div className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
               <Users size={24} />
@@ -221,7 +221,7 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
       </div>
 
       {/* User Management */}
-      <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10 mt-8">
+      <div className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10 mt-8">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
             <UserPlus size={24} />

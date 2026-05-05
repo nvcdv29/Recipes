@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore as useAuth } from '../stores/authStore';
 import { useSocialFeatures } from './useSocialFeatures';
 
 export function useNotifications() {
