@@ -9,7 +9,11 @@ import {
   Loader2, 
   Image as ImageIcon 
 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { doc, collection, addDoc, updateDoc } from 'firebase/firestore';
+import { diff } from 'deep-object-diff';
+import { generateRecipeEmbedding } from '../../services/embeddings';
+import { getRecipeVersions } from '../../services/recipeVersioning';
 import { toast } from 'sonner';
 import { db } from '../../firebase';
 import { Recipe, Difficulty, OperationType } from '../../types';
@@ -71,7 +75,6 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
     setIsSaving(true);
     try {
       // Image Compression
-      const { default: imageCompression } = await import('browser-image-compression');
       const imagesToCompress = (formData.images || []).slice(0, 3);
       const compressedImages = await Promise.all(imagesToCompress.map(async (img) => {
         if (img && img.startsWith('data:image')) {
@@ -160,7 +163,6 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
   const executeSave = async (data: any, existingId?: string) => {
     setIsSaving(true);
     try {
-      const { generateRecipeEmbedding } = await import('../../services/embeddings');
       const embedding = await generateRecipeEmbedding(data);
       if (embedding) {
         data.embedding = embedding;
@@ -168,12 +170,10 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
 
       if (existingId) {
         // Calculate differences for versioning
-        const { diff } = await import('deep-object-diff');
         const changes = diff(initialRecipe || {}, data) as Partial<Recipe>;
         
         if (Object.keys(changes).length > 0) {
           // Get current highest version
-          const { getRecipeVersions } = await import('../../services/recipeVersioning');
           const versions = await getRecipeVersions(existingId);
           const nextVersion = versions.length > 0 ? versions[0].version + 1 : 1;
           
@@ -535,30 +535,13 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
             <div className="h-px flex-1 bg-outline-variant/20" />
           </h3>
           <div className="space-y-3">
-            {formData.ingredients?.map((ing, i) => (
-              <div key={i} className="flex gap-3">
-                <input 
-                  value={ing}
-                  onChange={e => updateField('ingredients', i, e.target.value)}
-                  className="flex-1 px-6 py-3 bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
-                  placeholder="Zutat hinzufügen..."
-                />
-                <button 
-                  type="button"
-                  onClick={() => removeField('ingredients', i)}
-                  className="p-3 text-on-surface-variant/40 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            ))}
-            <button 
-              type="button"
-              onClick={() => addField('ingredients')}
-              className="flex items-center gap-2 text-primary font-medium px-4 py-2 hover:bg-primary/5 rounded-lg transition-colors"
-            >
-              <Plus size={18} /> Zutat hinzufügen
-            </button>
+            <textarea 
+              value={formData.ingredients?.join('\n') || ''}
+              onChange={e => setFormData({ ...formData, ingredients: e.target.value.split('\n').filter(line => line.trim() !== '') })}
+              className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none min-h-[150px] leading-relaxed"
+              placeholder="1 Prise Salz&#10;500g Mehl&#10;etwas Öl..."
+            />
+            <p className="text-xs text-on-surface-variant px-2">Jede Zeile wird als separate Zutat gespeichert. Unterstützt alle Mengen und Einheitentypen oder Notizen.</p>
           </div>
         </div>
 
@@ -567,32 +550,14 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
             Zubereitung
             <div className="h-px flex-1 bg-outline-variant/20" />
           </h3>
-          <div className="space-y-4">
-            {formData.instructions?.map((step, i) => (
-              <div key={i} className="flex gap-4">
-                <span className="text-2xl font-serif font-bold text-primary/10 pt-2">{i+1}</span>
-                <textarea 
-                  value={step}
-                  onChange={e => updateField('instructions', i, e.target.value)}
-                  className="flex-1 px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none min-h-[100px]"
-                  placeholder="Schritt beschreiben..."
-                />
-                <button 
-                  type="button"
-                  onClick={() => removeField('instructions', i)}
-                  className="p-3 text-on-surface-variant/40 hover:text-red-500 transition-colors h-fit"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            ))}
-            <button 
-              type="button"
-              onClick={() => addField('instructions')}
-              className="flex items-center gap-2 text-primary font-medium px-4 py-2 hover:bg-primary/5 rounded-lg transition-colors"
-            >
-              <Plus size={18} /> Schritt hinzufügen
-            </button>
+          <div className="space-y-3">
+            <textarea 
+              value={formData.instructions?.join('\n\n') || ''}
+              onChange={e => setFormData({ ...formData, instructions: e.target.value.split('\n\n').filter(line => line.trim() !== '') })}
+              className="w-full px-6 py-4 bg-surface-container-low rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none min-h-[200px] leading-relaxed"
+              placeholder="1. Schritt beschreiben...&#10;&#10;2. Nächster Schritt..."
+            />
+            <p className="text-xs text-on-surface-variant px-2">Jeder Absatz (getrennt durch eine leere Zeile) wird als separater Zubereitungsschritt gespeichert.</p>
           </div>
         </div>
 

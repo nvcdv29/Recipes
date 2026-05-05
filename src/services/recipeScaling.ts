@@ -12,7 +12,13 @@ export const parseIngredients = async (ingredients: string[]): Promise<ParsedIng
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ingredients })
   });
-  if (!response.ok) throw new Error("Failed to parse ingredients");
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error("Gemini API key is missing. Please configure it in the Secrets panel and restart the application.");
+    }
+    throw new Error(errorData.error || "Failed to parse ingredients");
+  }
   const data = await response.json();
   return data.parsed;
 };
@@ -23,7 +29,13 @@ export const suggestSubstitutions = async (ingredientName: string): Promise<stri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ingredientName })
   });
-  if (!response.ok) throw new Error("Failed to suggest substitutes");
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error("Gemini API key is missing. Please configure it in the Secrets panel and restart the application.");
+    }
+    throw new Error(errorData.error || "Failed to suggest substitutes");
+  }
   const data = await response.json();
   return data.suggestions;
 };
@@ -39,7 +51,13 @@ export const adjustCookingTips = async (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ originalServings, newServings, recipeTitle, instructions })
   });
-  if (!response.ok) throw new Error("Failed to adjust tips");
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error("Gemini API key is missing. Please configure it in the Secrets panel and restart the application.");
+    }
+    throw new Error(errorData.error || "Failed to adjust tips");
+  }
   return response.json();
 };
 
@@ -53,7 +71,13 @@ export const solveForInventory = async (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ availableItem, originalIngredients, originalServings })
   });
-  if (!response.ok) throw new Error("Failed to solve inventory");
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new Error("Gemini API key is missing. Please configure it in the Secrets panel and restart the application.");
+    }
+    throw new Error(errorData.error || "Failed to solve inventory");
+  }
   return response.json();
 };
 

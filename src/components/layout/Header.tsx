@@ -1,4 +1,4 @@
-import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart, Bookmark, Calendar, Sun, Moon, Laptop } from 'lucide-react';
+import { ChefHat, Settings as SettingsIcon, Camera, Plus, LogOut, ShoppingCart, Bookmark, Calendar, Sun, Moon, Laptop, BarChart2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 import { useLocation } from 'react-router-dom';
@@ -93,6 +93,17 @@ export const Header = ({
             title="Menüplaner"
           >
             <Calendar size={20} />
+          </button>
+
+          <button 
+            onClick={() => setView('analytics')}
+            className={cn(
+              "p-2 rounded-full transition-colors",
+              location.pathname === '/analytics' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+            )}
+            title="Analytics Dashboard"
+          >
+            <BarChart2 size={20} />
           </button>
 
           {isAdmin && (

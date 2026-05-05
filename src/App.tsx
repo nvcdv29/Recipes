@@ -24,6 +24,7 @@ const ShoppingListsPage = lazy(() => import('./pages/ShoppingListsPage').then(m 
 const FavoritesManager = lazy(() => import('./pages/FavoritesManager').then(m => ({ default: m.FavoritesManager })));
 const MealPlanner = lazy(() => import('./pages/MealPlanner').then(m => ({ default: m.MealPlanner })));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage').then(m => ({ default: m.AnalyticsDashboardPage })));
 
 // Lazy Loaded Components
 const RecipeForm = lazy(() => import('./components/recipes/RecipeForm').then(m => ({ default: m.RecipeForm })));
@@ -100,6 +101,7 @@ const AppContent = () => {
           else if (v === 'shopping-lists') navigate('/shopping-lists');
           else if (v === 'favorites') navigate('/collections');
           else if (v === 'meal-planner') navigate('/meal-plan');
+          else if (v === 'analytics') navigate('/analytics');
         }}
         user={user}
         userProfile={userProfile}
@@ -120,6 +122,8 @@ const AppContent = () => {
               <Route path="/meal-plan" element={<PrivateRoute><MealPlanner /></PrivateRoute>} />
               {/* Backwards compatibility for meal-planner route */}
               <Route path="/meal-planner" element={<Navigate to="/meal-plan" replace />} />
+              
+              <Route path="/analytics" element={<PrivateRoute><AnalyticsDashboardPage /></PrivateRoute>} />
               
               <Route path="/recipes/:id" element={<RecipeDetailPage />} />
               {/* Backwards compatibility for recipe route */}

@@ -466,7 +466,6 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                 {!showSmartScale && (
                   <Button 
                     variant="outline" 
-                    size="sm" 
                     onClick={handleSmartScale} 
                     disabled={isParsing}
                   >
@@ -502,7 +501,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                   <div className="h-px flex-1 bg-outline-variant/20" />
                 </h2>
                 {scaledServings !== recipe.servings && !tipsOpen && (
-                  <Button variant="outline" size="sm" onClick={handleAdjustTips} disabled={isAdjustingTips} className="shrink-0 ml-4">
+                  <Button variant="outline" onClick={handleAdjustTips} disabled={isAdjustingTips} className="shrink-0 ml-4">
                     {isAdjustingTips ? <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" /> : "Zubereitung anpassen?"}
                   </Button>
                 )}

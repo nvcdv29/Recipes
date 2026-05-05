@@ -77,13 +77,13 @@ async function startServer() {
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
-        }
+        contents: prompt
       });
 
-      const text = response.text || "[]";
+      let text = response.text || "[]";
+      const match = text.match(/```(?:json)?\n?([\s\S]*?)```/);
+      if (match) text = match[1].trim();
+
       let parsed = ingredients.map((ing: string) => ({
         original: ing,
         amount: null,
@@ -94,7 +94,7 @@ async function startServer() {
       try {
         parsed = JSON.parse(text);
       } catch (e) {
-        console.error("Failed to parse ingredients:", e);
+        console.error("Failed to parse ingredients JSON:", text, e);
       }
       res.json({ parsed });
     } catch (error: any) {
@@ -143,18 +143,18 @@ async function startServer() {
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
-        }
+        contents: prompt
       });
 
-      const text = response.text || "{}";
+      let text = response.text || "{}";
+      const match = text.match(/```(?:json)?\n?([\s\S]*?)```/);
+      if (match) text = match[1].trim();
+
       let data = { newDuration: "", tips: [] as string[] };
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("Failed to parse tips:", e);
+        console.error("Failed to parse tips JSON:", text, e);
       }
       res.json(data);
     } catch (error: any) {
@@ -183,18 +183,18 @@ async function startServer() {
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
-        }
+        contents: prompt
       });
 
-      const text = response.text || "{}";
+      let text = response.text || "{}";
+      const match = text.match(/```(?:json)?\n?([\s\S]*?)```/);
+      if (match) text = match[1].trim();
+
       let data = { newServings: originalServings, explanation: "Could not calculate." };
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("Failed to solve inventory:", e);
+        console.error("Failed to solve inventory JSON:", text, e);
       }
       res.json(data);
     } catch (error: any) {
