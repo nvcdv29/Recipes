@@ -56,7 +56,7 @@ interface RecipeDetailProps {
 }
 
 export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, onCook, currentUser }: RecipeDetailProps) => {
-  const { userProfile, toggleFavorite } = useAuth();
+  const { userProfile, toggleFavorite, settings } = useAuth();
   const [recipe, setRecipe] = useState(initialRecipe);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [showPdfOptions, setShowPdfOptions] = useState(false);
@@ -300,19 +300,21 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
           <span>Zurück zur Übersicht</span>
         </button>
         <div className="flex gap-2 relative">
-          {recipe.id && (
+          {settings.enableVariations !== false && recipe.id && (
             <VariantManager recipe={recipe} currentUser={currentUser} onVariantSelected={setRecipe} />
           )}
           
-          <button onClick={onCook} className="p-3 bg-primary text-white hover:bg-primary/90 rounded-full transition-colors flex items-center gap-2 px-5 font-medium mr-2" title="Kochen starten">
-            <Play size={20} className="fill-white" />
-            <span className="hidden sm:inline">Kochen</span>
-          </button>
+          {settings.enableCookingMode !== false && (
+            <button onClick={onCook} className="p-3 bg-primary text-white hover:bg-primary/90 rounded-full transition-colors flex items-center gap-2 px-5 font-medium mr-2" title="Kochen starten">
+              <Play size={20} className="fill-white" />
+              <span className="hidden sm:inline">Kochen</span>
+            </button>
+          )}
           <button onClick={() => setShowPdfOptions(!showPdfOptions)} className="p-3 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant" title="Drucken / PDF">
             <Printer size={20} />
           </button>
           
-          {recipe.id && (
+          {settings.enableVersionHistory !== false && recipe.id && (
              <VersionHistory recipe={recipe} />
           )}
 
@@ -463,7 +465,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
               <h2 className="text-2xl font-serif font-bold mb-8 flex items-center gap-3">
                 Zutaten
                 <div className="h-px flex-1 bg-outline-variant/20" />
-                {!showSmartScale && (
+                {settings.enableGeminiCalculator !== false && !showSmartScale && (
                   <Button 
                     variant="outline" 
                     onClick={handleSmartScale} 
@@ -500,7 +502,7 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                   Zubereitung
                   <div className="h-px flex-1 bg-outline-variant/20" />
                 </h2>
-                {scaledServings !== recipe.servings && !tipsOpen && (
+                {settings.enableGeminiCalculator !== false && scaledServings !== recipe.servings && !tipsOpen && (
                   <Button variant="outline" onClick={handleAdjustTips} disabled={isAdjustingTips} className="shrink-0 ml-4">
                     {isAdjustingTips ? <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" /> : "Zubereitung anpassen?"}
                   </Button>
@@ -558,30 +560,34 @@ export const RecipeDetail = ({ recipe: initialRecipe, onBack, onEdit, onDelete, 
                 </div>
               )}
               
-              <div className="mt-8 flex gap-2">
-                {['❤️', '🔥', '👍', '😋', '😍'].map(emoji => {
-                  const hasReacted = reactions.some(r => r.emoji === emoji && r.userId === currentUser?.uid);
-                  const count = reactions.filter(r => r.emoji === emoji).length;
+              {settings.enableSocialFeatures !== false && (
+                <>
+                  <div className="mt-8 flex gap-2">
+                    {['❤️', '🔥', '👍', '😋', '😍'].map(emoji => {
+                      const hasReacted = reactions.some(r => r.emoji === emoji && r.userId === currentUser?.uid);
+                      const count = reactions.filter(r => r.emoji === emoji).length;
+                      
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => toggleReaction(emoji)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-lg shadow-sm border transition-all active:scale-95",
+                            hasReacted ? "bg-primary/20 border-primary shadow-inner" : "bg-white border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:bg-surface-container-high"
+                          )}
+                        >
+                          {emoji} {count > 0 && <span className="text-sm font-medium text-gray-700 ml-1">{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                   
-                  return (
-                    <button
-                      key={emoji}
-                      onClick={() => toggleReaction(emoji)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-lg shadow-sm border transition-all active:scale-95",
-                        hasReacted ? "bg-primary/20 border-primary shadow-inner" : "bg-white border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:bg-surface-container-high"
-                      )}
-                    >
-                      {emoji} {count > 0 && <span className="text-sm font-medium text-gray-700 ml-1">{count}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <hr className="my-12 border-gray-200 dark:border-white/10" />
-              
-              {recipe.id && <CookingLogCard recipeId={recipe.id} />}
-              {recipe.id && <CommentSection recipeId={recipe.id} />}
+                  <hr className="my-12 border-gray-200 dark:border-white/10" />
+                  
+                  {recipe.id && <CookingLogCard recipeId={recipe.id} />}
+                  {recipe.id && <CommentSection recipeId={recipe.id} />}
+                </>
+              )}
               
             </div>
           </div>

@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
+import { cn } from '../lib/utils';
 import { useRecipeStore as useRecipes } from '../stores/recipeStore';
 import { useFilterStore } from '../stores/filterStore';
 import { useAuthStore } from '../stores/authStore';
 import { RecipeFilters } from '../components/recipes/RecipeFilters';
 import { SmartSearchBar } from '../components/recipes/SmartSearchBar';
+import { SearchBar } from '../components/recipes/SearchBar';
 import { RecipeCard } from '../components/recipes/RecipeCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ActivityFeed } from '../components/social/ActivityFeed';
@@ -22,6 +24,7 @@ export const HomePage = () => {
   } = useRecipes();
   
   const user = useAuthStore(state => state.user);
+  const settings = useAuthStore(state => state.settings);
   const filterCategory = useFilterStore(state => state.filterCategory);
   const filterDietary = useFilterStore(state => state.filterDietary);
   const filterDifficulty = useFilterStore(state => state.filterDifficulty);
@@ -52,11 +55,15 @@ export const HomePage = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="grid grid-cols-1 xl:grid-cols-4 gap-8"
+      className={cn("grid gap-8", settings.enableSocialFeatures !== false ? "grid-cols-1 xl:grid-cols-4" : "grid-cols-1")}
     >
-      <div className="xl:col-span-3">
+      <div className={settings.enableSocialFeatures !== false ? "xl:col-span-3" : "cols-span-1"}>
         <div className="mb-6">
-          <SmartSearchBar onResults={setSmartResults} />
+          {settings.enableNaturalLanguageSearch !== false ? (
+            <SmartSearchBar onResults={setSmartResults} />
+          ) : (
+            <SearchBar />
+          )}
         </div>
 
         <AnimatePresence>
@@ -109,9 +116,11 @@ export const HomePage = () => {
         )}
       </div>
       
-      <div className="xl:col-span-1 hidden xl:block space-y-6">
-        <ActivityFeed />
-      </div>
+      {settings.enableSocialFeatures !== false && (
+        <div className="xl:col-span-1 hidden xl:block space-y-6">
+          <ActivityFeed />
+        </div>
+      )}
     </motion.div>
   );
 };

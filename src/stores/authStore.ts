@@ -38,7 +38,16 @@ export const useAuthStore = create<AuthState>()(
         allowEmailLogin: true,
         restrictToWhitelist: true,
         allowRegistration: true,
-        allowMagicLink: true
+        allowMagicLink: true,
+        enableNaturalLanguageSearch: true,
+        enableShoppingLists: true,
+        enableWeeklyMealPlanner: true,
+        enableAnalytics: true,
+        enableGeminiCalculator: true,
+        enableSocialFeatures: true,
+        enableVersionHistory: true,
+        enableVariations: true,
+        enableCookingMode: true,
       },
 
       setUser: (user) => set({ user }, false, 'setUser'),

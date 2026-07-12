@@ -33,7 +33,7 @@ function adjustWeek(isoDate: string, weeks: number) {
 }
 
 export const MealPlanner = () => {
-  const { user } = useAuth();
+  const { user, settings } = useAuth();
   const { recipes } = useRecipes();
   const { createList } = useShoppingList();
   const navigate = useNavigate();
@@ -256,7 +256,9 @@ export const MealPlanner = () => {
               
               <div className="flex gap-2">
                 <Button variant="outline" icon={FileText} onClick={generateICS}>Als ICS Exportieren</Button>
-                <Button icon={ShoppingCart} onClick={generateShoppingList}>Einkaufsliste</Button>
+                {settings.enableShoppingLists !== false && (
+                  <Button icon={ShoppingCart} onClick={generateShoppingList}>Einkaufsliste</Button>
+                )}
               </div>
             </div>
 

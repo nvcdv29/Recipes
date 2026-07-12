@@ -80,6 +80,15 @@ export interface Settings {
   restrictToWhitelist: boolean;
   allowRegistration: boolean;
   allowMagicLink: boolean;
+  enableNaturalLanguageSearch?: boolean;
+  enableShoppingLists?: boolean;
+  enableWeeklyMealPlanner?: boolean;
+  enableAnalytics?: boolean;
+  enableGeminiCalculator?: boolean;
+  enableSocialFeatures?: boolean;
+  enableVersionHistory?: boolean;
+  enableVariations?: boolean;
+  enableCookingMode?: boolean;
 }
 
 export interface ShoppingListItem {

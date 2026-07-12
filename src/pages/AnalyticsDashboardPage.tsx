@@ -66,7 +66,7 @@ export const AnalyticsDashboardPage = () => {
         allLogs = logsSnapshot.docs
           .map(d => ({ id: d.id, ...d.data() }))
           .filter((l: any) => new Date(l.cookedDate) >= dCutoff)
-          .sort((a, b) => new Date(b.cookedDate).getTime() - new Date(a.cookedDate).getTime());
+          .sort((a: any, b: any) => new Date(b.cookedDate).getTime() - new Date(a.cookedDate).getTime());
       } catch (e: any) {
         console.error("Error fetching cookingLogs:", e);
         throw new Error("Cooking logs fetch failed: " + e.message);

@@ -114,16 +114,16 @@ const AppContent = () => {
           <Suspense fallback={<SuspenseFallback />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/shopping-lists" element={<PrivateRoute><ShoppingListsPage /></PrivateRoute>} />
+              <Route path="/shopping-lists" element={settings.enableShoppingLists !== false ? <PrivateRoute><ShoppingListsPage /></PrivateRoute> : <Navigate to="/" replace />} />
               <Route path="/collections" element={<PrivateRoute><FavoritesManager /></PrivateRoute>} />
               {/* Backwards compatibility for favorites route */}
               <Route path="/favorites" element={<Navigate to="/collections" replace />} />
               
-              <Route path="/meal-plan" element={<PrivateRoute><MealPlanner /></PrivateRoute>} />
+              <Route path="/meal-plan" element={settings.enableWeeklyMealPlanner !== false ? <PrivateRoute><MealPlanner /></PrivateRoute> : <Navigate to="/" replace />} />
               {/* Backwards compatibility for meal-planner route */}
               <Route path="/meal-planner" element={<Navigate to="/meal-plan" replace />} />
               
-              <Route path="/analytics" element={<PrivateRoute><AnalyticsDashboardPage /></PrivateRoute>} />
+              <Route path="/analytics" element={settings.enableAnalytics !== false ? <PrivateRoute><AnalyticsDashboardPage /></PrivateRoute> : <Navigate to="/" replace />} />
               
               <Route path="/recipes/:id" element={<RecipeDetailPage />} />
               {/* Backwards compatibility for recipe route */}
@@ -141,7 +141,7 @@ const AppContent = () => {
               } />
               
               <Route path="/edit/:id" element={<PrivateRoute><EditRecipeRoute user={user} recipes={recipes} /></PrivateRoute>} />
-              <Route path="/cook/:id" element={<CookRecipeRoute recipes={recipes} />} />
+              <Route path="/cook/:id" element={settings.enableCookingMode !== false ? <CookRecipeRoute recipes={recipes} /> : <Navigate to="/" replace />} />
               <Route path="/import" element={
                 <PrivateRoute>
                   <AIScanner 

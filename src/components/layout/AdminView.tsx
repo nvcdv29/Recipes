@@ -6,7 +6,8 @@ import {
   Users, 
   Plus, 
   Trash2, 
-  UserPlus 
+  UserPlus,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { 
   onSnapshot, 
@@ -38,7 +39,16 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
     allowEmailLogin: true,
     restrictToWhitelist: true,
     allowRegistration: true,
-    allowMagicLink: true
+    allowMagicLink: true,
+    enableNaturalLanguageSearch: true,
+    enableShoppingLists: true,
+    enableWeeklyMealPlanner: true,
+    enableAnalytics: true,
+    enableGeminiCalculator: true,
+    enableSocialFeatures: true,
+    enableVersionHistory: true,
+    enableVariations: true,
+    enableCookingMode: true,
   });
   const [allowedUsers, setAllowedUsers] = useState<AllowedUser[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
@@ -53,6 +63,15 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
         restrictToWhitelist: true,
         allowRegistration: true,
         allowMagicLink: true,
+        enableNaturalLanguageSearch: true,
+        enableShoppingLists: true,
+        enableWeeklyMealPlanner: true,
+        enableAnalytics: true,
+        enableGeminiCalculator: true,
+        enableSocialFeatures: true,
+        enableVersionHistory: true,
+        enableVariations: true,
+        enableCookingMode: true,
         ...doc.data()
       } as Settings);
     }, (error) => {
@@ -167,7 +186,50 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
                 <button
                   onClick={() => toggleSetting(s.key)}
                   className={cn(
-                    "w-12 h-6 rounded-full transition-all relative",
+                    "w-12 h-6 rounded-full transition-all relative shrink-0",
+                    settings[s.key as keyof Settings] ? "bg-primary" : "bg-outline-variant"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm",
+                    settings[s.key as keyof Settings] ? "left-7" : "left-1"
+                  )} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Feature Toggles */}
+        <div className="bg-white dark:bg-surface-container-low rounded-[2.5rem] p-8 shadow-xl border border-outline-variant/10">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+              <SettingsIcon size={24} />
+            </div>
+            <h3 className="text-xl font-serif font-bold">Funktionen</h3>
+          </div>
+          
+          <div className="space-y-6">
+            {[
+              { key: 'enableNaturalLanguageSearch', label: 'Natural Language Search', desc: 'KI-gestützte Semantik-Suche.' },
+              { key: 'enableShoppingLists', label: 'Shopping Lists', desc: 'Einkaufslisten-Manager aktivieren.' },
+              { key: 'enableWeeklyMealPlanner', label: 'Weekly Meal Planner', desc: 'Wochenplaner aktivieren.' },
+              { key: 'enableAnalytics', label: 'Analytics Dashboard', desc: 'Statistiken und Einblicke.' },
+              { key: 'enableGeminiCalculator', label: 'Portionen & Ersatz (Gemini)', desc: 'KI-gestützte Anpassungen.' },
+              { key: 'enableSocialFeatures', label: 'Social Features', desc: 'Emoji Reactions, Comments, Cooking Log.' },
+              { key: 'enableVersionHistory', label: 'Versionshistorie', desc: 'Verlauf der Rezeptänderungen.' },
+              { key: 'enableVariations', label: 'Rezept-Variationen', desc: 'Eigene Abwandlungen erstellen.' },
+              { key: 'enableCookingMode', label: 'Kochmodus', desc: 'Interaktive Schritt-für-Schritt Ansicht.' }
+            ].map((s: any) => (
+              <div key={s.key} className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">{s.label}</p>
+                  <p className="text-xs text-on-surface-variant/60">{s.desc}</p>
+                </div>
+                <button
+                  onClick={() => toggleSetting(s.key)}
+                  className={cn(
+                    "w-12 h-6 rounded-full transition-all relative shrink-0",
                     settings[s.key as keyof Settings] ? "bg-primary" : "bg-outline-variant"
                   )}
                 >

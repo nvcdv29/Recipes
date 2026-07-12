@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 interface DuplicateDetectorProps {
   duplicates: { recipe: Recipe, score: number }[];
   onMerge: (existingRecipe: Recipe) => void;
-  onSaveAsVariant: () => void;
+  onSaveAsVariant?: () => void;
   onSaveAnyway: () => void;
   onCancel: () => void;
 }
@@ -73,14 +73,16 @@ export const DuplicateDetector = ({ duplicates, onMerge, onSaveAsVariant, onSave
             >
               Überschreiben
             </Button>
-            <Button 
-              className="flex-1" 
-              variant="outline"
-              icon={Copy}
-              onClick={onSaveAsVariant}
-            >
-              Als Variante
-            </Button>
+            {onSaveAsVariant && (
+              <Button 
+                className="flex-1" 
+                variant="outline"
+                icon={Copy}
+                onClick={onSaveAsVariant}
+              >
+                Als Variante
+              </Button>
+            )}
           </div>
           <div className="flex justify-between items-center pt-2">
             <button

@@ -21,6 +21,7 @@ import { handleFirestoreError } from '../../services/firestore';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { useRecipeStore as useRecipes } from '../../stores/recipeStore';
+import { useAuthStore } from '../../stores/authStore';
 import { detectDuplicates } from '../../services/duplicateDetection';
 import { DuplicateDetector } from './DuplicateDetector';
 
@@ -36,6 +37,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
   const location = useLocation();
   const scanData = location.state?.recipeData;
   const { recipes } = useRecipes();
+  const { settings } = useAuthStore();
   
   const [duplicates, setDuplicates] = useState<{ recipe: Recipe, score: number }[]>([]);
   const [pendingSaveData, setPendingSaveData] = useState<any>(null);
@@ -173,26 +175,28 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
         const changes = diff(initialRecipe || {}, data) as Partial<Recipe>;
         
         if (Object.keys(changes).length > 0) {
-          // Get current highest version
-          const versions = await getRecipeVersions(existingId);
-          const nextVersion = versions.length > 0 ? versions[0].version + 1 : 1;
-          
           await updateDoc(doc(db, 'recipes', existingId), data);
-          
-          const changedKeys = Object.keys(changes);
-          const description = changedKeys.length > 0 
-            ? `Aktualisiert: ${changedKeys.join(', ')}`
-            : 'Rezept aktualisiert';
 
-          // Save version
-          await addDoc(collection(db, 'recipes', existingId, 'versions'), {
-            recipeId: existingId,
-            version: nextVersion,
-            changes,
-            changedBy: user.uid,
-            changeDate: new Date().toISOString(),
-            changeDescription: description
-          });
+          if (settings.enableVersionHistory !== false) {
+            // Get current highest version
+            const versions = await getRecipeVersions(existingId);
+            const nextVersion = versions.length > 0 ? versions[0].version + 1 : 1;
+            
+            const changedKeys = Object.keys(changes);
+            const description = changedKeys.length > 0 
+              ? `Aktualisiert: ${changedKeys.join(', ')}`
+              : 'Rezept aktualisiert';
+
+            // Save version
+            await addDoc(collection(db, 'recipes', existingId, 'versions'), {
+              recipeId: existingId,
+              version: nextVersion,
+              changes,
+              changedBy: user.uid,
+              changeDate: new Date().toISOString(),
+              changeDescription: description
+            });
+          }
         }
         toast.success("Rezept aktualisiert!");
       } else {
@@ -606,7 +610,7 @@ export const RecipeForm = ({ recipe: initialRecipe, onCancel, onSave, user, isBu
         <DuplicateDetector 
           duplicates={duplicates}
           onMerge={handleMerge}
-          onSaveAsVariant={handleSaveAsVariant}
+          onSaveAsVariant={settings.enableVariations !== false ? handleSaveAsVariant : undefined}
           onSaveAnyway={handleSaveAnyway}
           onCancel={() => {
             setDuplicates([]);

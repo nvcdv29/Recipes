@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 import { useLocation } from 'react-router-dom';
 import { useThemeStore } from '../../stores/themeStore';
+import { useAuthStore } from '../../stores/authStore';
 
 interface HeaderProps {
   view: string;
@@ -27,6 +28,7 @@ export const Header = ({
   const location = useLocation();
 
   const { theme, setTheme } = useThemeStore();
+  const { settings } = useAuthStore();
 
   const cycleTheme = () => {
     if (theme === 'system') setTheme('light');
@@ -62,16 +64,18 @@ export const Header = ({
             {renderThemeIcon()}
           </button>
           
-          <button 
-            onClick={() => setView('shopping-lists')}
-            className={cn(
-              "p-2 rounded-full transition-colors",
-              location.pathname === '/shopping-lists' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
-            )}
-            title="Einkaufslisten"
-          >
-            <ShoppingCart size={20} />
-          </button>
+          {settings.enableShoppingLists !== false && (
+            <button 
+              onClick={() => setView('shopping-lists')}
+              className={cn(
+                "p-2 rounded-full transition-colors",
+                location.pathname === '/shopping-lists' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+              )}
+              title="Einkaufslisten"
+            >
+              <ShoppingCart size={20} />
+            </button>
+          )}
           
           <button 
             onClick={() => setView('favorites')}
@@ -84,27 +88,31 @@ export const Header = ({
             <Bookmark size={20} />
           </button>
 
-          <button 
-            onClick={() => setView('meal-planner')}
-            className={cn(
-              "p-2 rounded-full transition-colors",
-              location.pathname === '/meal-planner' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
-            )}
-            title="Menüplaner"
-          >
-            <Calendar size={20} />
-          </button>
+          {settings.enableWeeklyMealPlanner !== false && (
+            <button 
+              onClick={() => setView('meal-planner')}
+              className={cn(
+                "p-2 rounded-full transition-colors",
+                location.pathname === '/meal-planner' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+              )}
+              title="Menüplaner"
+            >
+              <Calendar size={20} />
+            </button>
+          )}
 
-          <button 
-            onClick={() => setView('analytics')}
-            className={cn(
-              "p-2 rounded-full transition-colors",
-              location.pathname === '/analytics' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
-            )}
-            title="Analytics Dashboard"
-          >
-            <BarChart2 size={20} />
-          </button>
+          {settings.enableAnalytics !== false && (
+            <button 
+              onClick={() => setView('analytics')}
+              className={cn(
+                "p-2 rounded-full transition-colors",
+                location.pathname === '/analytics' ? "bg-primary/10 text-primary" : "hover:bg-surface-container-high text-on-surface-variant"
+              )}
+              title="Analytics Dashboard"
+            >
+              <BarChart2 size={20} />
+            </button>
+          )}
 
           {isAdmin && (
             <button 
