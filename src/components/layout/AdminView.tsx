@@ -128,11 +128,10 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
     }
   };
 
-  const toggleUserRole = async (user: UserProfile) => {
+  const setUserRole = async (user: UserProfile, newRole: 'admin' | 'user' | 'viewer') => {
     try {
-      const newRole = user.role === 'admin' ? 'user' : 'admin';
       await updateDoc(doc(db, 'users', user.uid), { role: newRole });
-      toast.success(`Rolle für ${user.displayName || user.email} geändert`);
+      toast.success(`Rolle für ${user.displayName || user.email} auf "${newRole}" geändert`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     }
@@ -307,22 +306,23 @@ export const AdminView = ({ onBack }: AdminViewProps) => {
                   <td className="py-4 font-medium">{u.displayName || '-'}</td>
                   <td className="py-4 text-on-surface-variant">{u.email}</td>
                   <td className="py-4">
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                      u.role === 'admin' ? "bg-primary/10 text-primary" : "bg-surface-container-high text-on-surface-variant"
-                    )}>
-                      {u.role}
-                    </span>
+                    <select
+                      value={u.role}
+                      onChange={(e) => setUserRole(u, e.target.value as 'admin' | 'user' | 'viewer')}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider outline-none cursor-pointer border-none",
+                        u.role === 'admin' ? "bg-blue-100 text-blue-700" :
+                        u.role === 'viewer' ? "bg-gray-100 text-gray-500" :
+                        "bg-green-100 text-green-700"
+                      )}
+                    >
+                      <option value="admin">admin</option>
+                      <option value="user">user</option>
+                      <option value="viewer">viewer</option>
+                    </select>
                   </td>
                   <td className="py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
-                        onClick={() => toggleUserRole(u)}
-                        className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        title={u.role === 'admin' ? "Zum Nutzer machen" : "Zum Admin machen"}
-                      >
-                        <ShieldCheck size={18} />
-                      </button>
                       <button 
                         onClick={() => deleteUser(u)}
                         className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"

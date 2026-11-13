@@ -19,6 +19,7 @@ export interface Recipe {
   sourceUrl?: string;
   createdAt: string;
   isPublic: boolean;
+  isAutoImage?: boolean;
   averageRating?: number;
   ratingCount?: number;
   embedding?: number[];
@@ -65,7 +66,7 @@ export interface UserProfile {
   displayName: string;
   email: string;
   photoURL: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'viewer';
   favorites?: string[];
 }
 

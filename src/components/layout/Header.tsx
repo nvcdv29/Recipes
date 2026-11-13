@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { useLocation } from 'react-router-dom';
 import { useThemeStore } from '../../stores/themeStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useIsViewer } from '../../hooks/useIsViewer';
 
 interface HeaderProps {
   view: string;
@@ -25,6 +26,7 @@ export const Header = ({
   const isAdmin = userProfile?.role === 'admin' || 
                   user?.email === 'nl.leitschuh@gmail.com' || 
                   user?.email === 'noah@leitschuh.de';
+  const isViewer = useIsViewer();
   const location = useLocation();
 
   const { theme, setTheme } = useThemeStore();
@@ -125,20 +127,24 @@ export const Header = ({
               <SettingsIcon size={20} />
             </button>
           )}
-          <Button 
-            variant="secondary" 
-            className="hidden sm:flex"
-            onClick={() => setView('scan')}
-            icon={Camera}
-          >
-            Scan
-          </Button>
-          <Button 
-            onClick={onNewRecipe}
-            icon={Plus}
-          >
-            Neu
-          </Button>
+          {!isViewer && (
+            <Button 
+              variant="secondary" 
+              className="hidden sm:flex"
+              onClick={() => setView('scan')}
+              icon={Camera}
+            >
+              Scan
+            </Button>
+          )}
+          {!isViewer && (
+            <Button 
+              onClick={onNewRecipe}
+              icon={Plus}
+            >
+              Neu
+            </Button>
+          )}
           <div className="h-8 w-px bg-outline-variant/20 mx-2 hidden sm:block" />
           <button 
             onClick={onLogout}

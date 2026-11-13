@@ -1,7 +1,8 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, LayoutGrid, LayoutList, ArrowUpDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFilterStore } from '../../stores/filterStore';
 import { useRecipeStore } from '../../stores/recipeStore';
+import { useUIStore } from '../../stores/uiStore';
 
 interface RecipeFiltersProps {
   categories: string[];
@@ -22,6 +23,11 @@ export const RecipeFilters = ({
   const setFilterDifficulty = useFilterStore(state => state.setFilterDifficulty);
 
   const performSearch = useRecipeStore(state => state.performSearch);
+
+  const viewMode = useUIStore(state => state.viewMode);
+  const setViewMode = useUIStore(state => state.setViewMode);
+  const sortBy = useUIStore(state => state.sortBy);
+  const setSortBy = useUIStore(state => state.setSortBy);
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
@@ -67,28 +73,64 @@ export const RecipeFilters = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <select
-          value={filterDifficulty}
-          onChange={(e) => setFilterDifficulty(e.target.value)}
-          className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
-        >
-          <option value="Alle">Alle Schwierigkeiten</option>
-          <option value="einfach">Einfach</option>
-          <option value="mittel">Mittel</option>
-          <option value="schwer">Schwer</option>
-        </select>
-        <select
-          value={filterDietary}
-          onChange={(e) => setFilterDietary(e.target.value)}
-          className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
-        >
-          {dietaryOptions.map(opt => (
-            <option key={opt} value={opt}>
-              {opt === 'Alle' ? 'Ernährungsart (Alle)' : opt}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-4 justify-between items-center w-full">
+        <div className="flex flex-wrap gap-4">
+          <select
+            value={filterDifficulty}
+            onChange={(e) => setFilterDifficulty(e.target.value)}
+            className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
+          >
+            <option value="Alle">Alle Schwierigkeiten</option>
+            <option value="einfach">Einfach</option>
+            <option value="mittel">Mittel</option>
+            <option value="schwer">Schwer</option>
+          </select>
+          <select
+            value={filterDietary}
+            onChange={(e) => setFilterDietary(e.target.value)}
+            className="px-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
+          >
+            {dietaryOptions.map(opt => (
+              <option key={opt} value={opt}>
+                {opt === 'Alle' ? 'Ernährungsart (Alle)' : opt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="pl-9 pr-4 py-2 bg-surface-container-low text-sm rounded-xl outline-none focus:ring-2 focus:ring-primary/20 appearance-none text-on-surface-variant cursor-pointer border border-transparent hover:border-outline-variant/20 transition-all"
+            >
+              <option value="date_desc">Neueste zuerst</option>
+              <option value="date_asc">Älteste zuerst</option>
+              <option value="rating">Beste Bewertung</option>
+              <option value="name">A–Z</option>
+              <option value="duration">Kürzeste Dauer</option>
+            </select>
+            <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70 pointer-events-none" />
+          </div>
+
+          <div className="flex bg-surface-container-low rounded-xl overflow-hidden border border-transparent">
+            <button 
+              onClick={() => setViewMode('grid')} 
+              aria-label="Rasteransicht"
+              className={cn("p-2 transition-colors", viewMode === 'grid' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-high')}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => setViewMode('list')} 
+              aria-label="Listenansicht"
+              className={cn("p-2 transition-colors", viewMode === 'list' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-high')}
+            >
+              <LayoutList className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

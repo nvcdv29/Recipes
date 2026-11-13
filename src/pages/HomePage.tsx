@@ -3,10 +3,12 @@ import { cn } from '../lib/utils';
 import { useRecipeStore as useRecipes } from '../stores/recipeStore';
 import { useFilterStore } from '../stores/filterStore';
 import { useAuthStore } from '../stores/authStore';
+import { useUIStore } from '../stores/uiStore';
 import { RecipeFilters } from '../components/recipes/RecipeFilters';
 import { SmartSearchBar } from '../components/recipes/SmartSearchBar';
 import { SearchBar } from '../components/recipes/SearchBar';
 import { RecipeCard } from '../components/recipes/RecipeCard';
+import { RecipeListItem } from '../components/recipes/RecipeListItem';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ActivityFeed } from '../components/social/ActivityFeed';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -30,6 +32,8 @@ export const HomePage = () => {
   const filterDifficulty = useFilterStore(state => state.filterDifficulty);
   const filterDuration = useFilterStore(state => state.filterDuration);
   const filterServings = useFilterStore(state => state.filterServings);
+  const viewMode = useUIStore(state => state.viewMode);
+  const sortBy = useUIStore(state => state.sortBy);
 
   const navigate = useNavigate();
   
@@ -48,7 +52,26 @@ export const HomePage = () => {
     });
   }, [recipes, searchResults, filterCategory, filterDietary, filterDifficulty, filterDuration, filterServings, user]);
 
-  const displayRecipes = smartResults ? smartResults.recipes : filteredRecipes;
+  const baseRecipes = smartResults ? smartResults.recipes : filteredRecipes;
+
+  const displayRecipes = useMemo(() => {
+    return [...baseRecipes].sort((a, b) => {
+      switch (sortBy) {
+        case 'rating': return ((b.averageRating || 0) - (a.averageRating || 0));
+        case 'name': return a.title.localeCompare(b.title, 'de');
+        case 'duration': {
+          const parseDur = (d?: string) => {
+            if (!d) return 999;
+            const m = d.match(/(\d+)/);
+            return m ? parseInt(m[1]) : 999;
+          };
+          return parseDur(a.duration) - parseDur(b.duration);
+        }
+        case 'date_asc': return a.createdAt.localeCompare(b.createdAt);
+        default: return b.createdAt.localeCompare(a.createdAt); // date_desc
+      }
+    });
+  }, [baseRecipes, sortBy]);
 
   return (
     <motion.div 
@@ -103,6 +126,16 @@ export const HomePage = () => {
             title="Keine Rezepte gefunden"
             description="Starte deine Sammlung mit einem neuen Rezept!"
           />
+        ) : viewMode === 'list' ? (
+          <div className="mt-8">
+            {displayRecipes.map((recipe) => (
+              <RecipeListItem
+                key={recipe.id}
+                recipe={recipe}
+                onClick={() => navigate(`/recipes/${recipe.id}`)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
             {displayRecipes.map((recipe) => (
